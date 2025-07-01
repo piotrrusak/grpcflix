@@ -6,6 +6,8 @@ import video_pb2_grpc
 import time
 import threading
 
+import random
+import numpy as np
 from collections import deque
 
 class Server(video_pb2_grpc.VideoServiceServicer):
@@ -17,6 +19,7 @@ class Server(video_pb2_grpc.VideoServiceServicer):
         self.stop = 0
         self.start = 1
         self.timestamp = 0
+        self.client_status = dict()
         threading.Thread(target=self.streamer_connection).start()
 
     def set_new_source(self, id):
@@ -50,6 +53,10 @@ class Server(video_pb2_grpc.VideoServiceServicer):
     def Stream(self, request_iterator, context):
 
         requests = set()
+
+        id = random.randint(0, 10000)
+
+        self.client_status[id] = 0
         
         def handle_requests():
             print(time.time())
@@ -66,8 +73,9 @@ class Server(video_pb2_grpc.VideoServiceServicer):
 
         while context.is_active():
             
-            if len(self.queue) != 0:
-                frames = self.queue.popleft()
+            if len(self.queue) > self.client_status[id]:
+                frames = self.queue[self.client_status[id]]
+                self.client_status[id] += 1
                 yield video_pb2.VideoChunk(frames=frames)
             else:
                 time.sleep(0.01)

@@ -1,14 +1,23 @@
 version: '3.8'
 
 services:
-  client:
+  client1:
     build:
       context: ./client
-    container_name: client
+    container_name: client1
     depends_on:
       - server
     volumes:
-      - ./shared_output:/output
+      - ./shared_output1:/output
+  
+  client2:
+    build:
+      context: ./client
+    container_name: client2
+    depends_on:
+      - server
+    volumes:
+      - ./shared_output2:/output
 
   server:
     build:
