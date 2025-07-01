@@ -21,9 +21,6 @@ class Server(video_pb2_grpc.VideoServiceServicer):
         self.timestamp = 0
         self.client_status = dict()
         threading.Thread(target=self.streamer_connection).start()
-
-    def set_new_source(self, id):
-        self.source_id = id
     
     def generator(self):
         if self.start:
@@ -55,6 +52,8 @@ class Server(video_pb2_grpc.VideoServiceServicer):
         requests = set()
 
         id = random.randint(0, 10000)
+        while id in self.client_status.keys():
+            id = random.randint(0, 10000)
 
         self.client_status[id] = 0
         
