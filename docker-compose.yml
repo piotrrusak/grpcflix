@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  client:
+    build:
+      context: ./client
+    container_name: client
+    depends_on:
+      - server
+    volumes:
+      - ./shared_output:/output
+
+  server:
+    build:
+      context: ./server
+    container_name: server
+    ports:
+      - "50001:50001"
+    depends_on:
+      - streamer
+
+  streamer:
+    build:
+      context: ./streamer
+    container_name: streamer
+    ports:
+      - "50002:50002"

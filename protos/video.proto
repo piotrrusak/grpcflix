@@ -1,0 +1,25 @@
+syntax = "proto3";
+package video;
+
+service VideoService {
+  rpc Stream(stream ClientMessage) returns (stream VideoChunk);
+}
+
+message ClientMessage {
+  oneof payload {
+    StartRequest start = 1;
+    StopRequest stop = 2;
+  }
+}
+
+message StartRequest {
+  string timestamp = 1;
+}
+
+message StopRequest {
+  string reason = 1;
+}
+
+message VideoChunk {
+  bytes frames = 1;
+}

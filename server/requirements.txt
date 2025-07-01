@@ -1,0 +1,6 @@
+grpcio
+grpcio-tools
+protobuf
+numpy
+opencv-python-headless
+matplotlib
