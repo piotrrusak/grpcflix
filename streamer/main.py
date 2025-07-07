@@ -9,6 +9,8 @@ import cv2
 
 from collections import deque
 
+from utils import convert_video_to_bytes
+
 class Streamer(video_pb2_grpc.VideoServiceServicer):
 
     def __init__(self, source_id=0):
@@ -16,7 +18,12 @@ class Streamer(video_pb2_grpc.VideoServiceServicer):
         self.sources = dict()
         self.pointer = -1
         self.chunk_size = 1000
+        self.current_data = convert_video_to_bytes("video.mp4")
     
+    def get_next_chunk_of_current_data(self):
+        self.pointer += 1
+        return self.current_data[(self.pointer)*self.chunk_size:(self.pointer+1)*self.chunk_size]
+
     def chunkify_photo(self):
         self.pointer += 1
         image = cv2.imread("image.jpeg")
@@ -26,7 +33,6 @@ class Streamer(video_pb2_grpc.VideoServiceServicer):
     def Stream(self, request_iterator, context):
 
         requests = set()
-        
         def handle_requests():
             print(time.time())
             try:
@@ -41,7 +47,7 @@ class Streamer(video_pb2_grpc.VideoServiceServicer):
         threading.Thread(target=handle_requests).start()
 
         while context.is_active():
-            frames = self.chunkify_photo()
+            frames = self.get_next_chunk_of_current_data()
             if len(frames) == 0:
                 break
             

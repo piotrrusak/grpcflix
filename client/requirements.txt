@@ -4,3 +4,4 @@ protobuf
 numpy
 opencv-python-headless
 matplotlib
+ffmpeg-python
