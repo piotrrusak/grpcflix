@@ -1,15 +1,32 @@
-from concurrent import futures
-
 import grpc
 import video_pb2
 import video_pb2_grpc
-import time
-import threading
-import cv2
 
-from collections import deque
+import sys, time, threading, collections, cv2, random, concurrent, utils
+import numpy as np
 
-from utils import convert_video_to_bytes
+import logging
+
+logger = logging.getLogger(__name__)
+
+# logger.setLevel(logging.NOTSET / logging.DEBUG / logging.INFO / logging.WARNING / logging.ERROR / logging.CRITICAL)
+# Sets the minimum level of logs that will be taken into account (i.e., processed).
+# If not set, have value of logging.NOTSET, then logger takes value of root logger i.e. logging.WARNING.
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+file_handler = logging.FileHandler("client.log", mode='w')
+file_handler.setFormatter(formatter)
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+# Because of root logger (every custom logger is child of root logger)
+logger.propagate = False
 
 class Streamer(video_pb2_grpc.VideoServiceServicer):
 
@@ -17,18 +34,12 @@ class Streamer(video_pb2_grpc.VideoServiceServicer):
         self.source_id = source_id
         self.sources = dict()
         self.pointer = -1
-        self.chunk_size = 1000
-        self.current_data = convert_video_to_bytes("video.mp4")
+        self.chunk_size = 2097152 # 2MB
+        self.current_data = utils.convert_video_to_bytes("video.mp4")
     
     def get_next_chunk_of_current_data(self):
         self.pointer += 1
         return self.current_data[(self.pointer)*self.chunk_size:(self.pointer+1)*self.chunk_size]
-
-    def chunkify_photo(self):
-        self.pointer += 1
-        image = cv2.imread("image.jpeg")
-        _, encoded_image = cv2.imencode('.jpg', image)
-        return encoded_image.tobytes()[(self.pointer)*self.chunk_size:(self.pointer+1)*self.chunk_size]
     
     def Stream(self, request_iterator, context):
 
@@ -58,7 +69,7 @@ class Streamer(video_pb2_grpc.VideoServiceServicer):
                 requests.clear()
 
 def serve():
-    streamer = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    streamer = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
     video_pb2_grpc.add_VideoServiceServicer_to_server(Streamer(), streamer)
     streamer.add_insecure_port('0.0.0.0:50002')
     streamer.start()

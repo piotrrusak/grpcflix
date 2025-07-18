@@ -1,21 +1,44 @@
-from concurrent import futures
-
 import grpc
 import video_pb2
 import video_pb2_grpc
-import time
-import threading
 
-import random
+import sys, time, threading, collections, cv2, random, concurrent
 import numpy as np
-from collections import deque
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+# logger.setLevel(logging.NOTSET / logging.DEBUG / logging.INFO / logging.WARNING / logging.ERROR / logging.CRITICAL)
+# Sets the minimum level of logs that will be taken into account (i.e., processed).
+# If not set, have value of logging.NOTSET, then logger takes value of root logger i.e. logging.WARNING.
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+file_handler = logging.FileHandler("client.log", mode='w')
+file_handler.setFormatter(formatter)
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+# Because of root logger (every custom logger is child of root logger)
+logger.propagate = False
 
 class Server(video_pb2_grpc.VideoServiceServicer):
 
-    def __init__(self, streamer_url='streamer:50002', source_id=0):
+    def __init__(
+                 self, 
+                #  streamer_url='streamer:50002',
+                 streamer_url='localhost:50002',
+                 source_id=0
+                 ):
         self.streamer_url = streamer_url
         self.source_id = source_id
-        self.queue = deque()
+        self.queue = collections.deque()
         self.stop = 0
         self.start = 1
         self.timestamp = 0
@@ -38,7 +61,7 @@ class Server(video_pb2_grpc.VideoServiceServicer):
         )
     
     def streamer_connection(self):
-        print("streamer_connection")
+        logger.info("streamer_connection")
         with grpc.insecure_channel(self.streamer_url) as channel:
             stub = video_pb2_grpc.VideoServiceStub(channel)
 
@@ -73,19 +96,16 @@ class Server(video_pb2_grpc.VideoServiceServicer):
         threading.Thread(target=handle_requests).start()
 
         while context.is_active():
-            print("Streamer got chunk:", time.time())
-            # if len(self.queue) > self.client_status[id]:
+            logger.debug(f"streamer_got_chunk {time.time()}")
             frames = self.queue[self.client_status[id]]
             self.client_status[id] += 1
             yield video_pb2.VideoChunk(frames=frames)
-            # else:
-            #     time.sleep(0.01)
 
             if len(requests) != 0:
                 requests.clear()
 
 def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
     video_pb2_grpc.add_VideoServiceServicer_to_server(Server(), server)
     server.add_insecure_port('0.0.0.0:50001')
     server.start()

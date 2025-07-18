@@ -2,6 +2,6 @@ grpcio
 grpcio-tools
 protobuf
 numpy
-opencv-python-headless
+opencv-python
 matplotlib
 ffmpeg-python

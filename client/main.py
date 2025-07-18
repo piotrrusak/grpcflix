@@ -1,20 +1,46 @@
 import grpc
 import video_pb2
 import video_pb2_grpc
-import time
-import threading
-from collections import deque
 
-import cv2
+import sys, time, threading, collections, cv2, multiprocessing
 import numpy as np
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+# logger.setLevel(logging.NOTSET / logging.DEBUG / logging.INFO / logging.WARNING / logging.ERROR / logging.CRITICAL)
+# Sets the minimum level of logs that will be taken into account (i.e., processed).
+# If not set, have value of logging.NOTSET, then logger takes value of root logger i.e. logging.WARNING.
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+file_handler = logging.FileHandler("client.log", mode='w')
+file_handler.setFormatter(formatter)
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+# Because of root logger (every custom logger is child of root logger)
+logger.propagate = False
 
 class Client:
 
-    def __init__(self):
+    def __init__(
+                 self,
+                #  server_url='server:50001',
+                 server_url='localhost:50001',
+                 ):
         self.start = 1
         self.timestamp = 0
         self.stop = 0
-        self.queue = deque()
+        self.queue = collections.deque()
+        self.server_url = server_url
+
         time.sleep(4)
 
     def generator(self):
@@ -31,34 +57,37 @@ class Client:
         )
     
     def server_connection(self):
-        current = 0
-        print("server_connection")
-        with grpc.insecure_channel('server:50001') as channel:
+        logger.info("server_connection")
+        with grpc.insecure_channel(self.server_url) as channel:
             stub = video_pb2_grpc.VideoServiceStub(channel)
             response_stream = stub.Stream(self.generator())
             buffer = b''
             try:
                 for chunk in response_stream:
                     buffer += chunk.frames
-                    if len(buffer) > (1080 * 1080 * 3) * (current+1):
-                        frame_bytes = buffer[1080*1080*3*current:1080*1080*3 * (current+1)]
+
+                    while len(buffer) >= (1080 * 1080 * 3):
+                        frame_bytes = buffer[:1080 * 1080 * 3]
+                        buffer = buffer[1080 * 1080 * 3:]
+                        
                         frame = np.frombuffer(frame_bytes, dtype=np.uint8).reshape((1080, 1080, 3))
-                        print(time.time())
                         cv2.imshow("Klatka", frame)
-                        print("ciul")
-                        if cv2.waitKey(int(1000/60)) & 0xFF == ord('q'):
+                        if cv2.waitKey(int(1000 / 60)) & 0xFF == ord('q'):
+                            self.stop = True
                             break
-                            
-                        # buffer = b''
-                    
-                    self.queue.append(chunk.frames)
+
+                    if self.stop:
+                        break
+
             except grpc.RpcError as e:
                 print(f"RpcError: {e.code()} - {e.details()}.")
+
 
 if __name__ == '__main__':
     client = Client()
 
-    threading.Thread(target=client.server_connection).start()
+    # threading.Thread(target=client.server_connection).start()
+    multiprocessing.Process(target=client.server_connection()).start()
 
     time.sleep(5)
     client.stop = True
