@@ -28,3 +28,7 @@ logger.addHandler(console_handler)
 
 # Because of root logger (every custom logger is child of root logger)
 logger.propagate = False```
+
+# TODO
+
+- Dodać synchronizacje, żeby było 60 fps, a nie 40, bo tam jest po prostu sleep, a tutaj trzeba zrobić sleepa na drugim threadzie który odświeża co tą 1/60 sekundy

@@ -2,7 +2,7 @@ import grpc
 import video_pb2
 import video_pb2_grpc
 
-import sys, time, threading, collections, cv2, random, concurrent
+import sys, time, threading, collections, random, concurrent, os, yaml
 import numpy as np
 
 import logging
@@ -28,15 +28,34 @@ logger.addHandler(console_handler)
 # Because of root logger (every custom logger is child of root logger)
 logger.propagate = False
 
-class Server(video_pb2_grpc.VideoServiceServicer):
+with open(os.path.join(os.path.dirname(__file__), 'config.yml'), 'r') as f:
+    config = yaml.safe_load(f)
+
+def connect_to_streamer(address, retries=10, delay=2):
+    for attempt in range(retries):
+        try:
+            logger.info(f"Connecting to streamer at {address} (attempt {attempt + 1})")
+            channel = grpc.insecure_channel(address)
+            grpc.channel_ready_future(channel).result(timeout=3)
+            logger.info("Successfully connected to streamer!")
+            return channel
+        except grpc.FutureTimeoutError:
+            logger.warning(f"Streamer not ready yet, retrying in {delay} seconds...")
+            time.sleep(delay)
+    raise ConnectionError(f"Failed to connect to streamer at {address} after {retries} attempts.")
+
+class Servicer(video_pb2_grpc.VideoServiceServicer):
 
     def __init__(
                  self, 
-                #  streamer_url='streamer:50002',
+                 streamer_url_docker='streamer:50002',
                  streamer_url='localhost:50002',
                  source_id=0
                  ):
-        self.streamer_url = streamer_url
+        if config["docker"] == "True":
+            self.streamer_url = streamer_url_docker
+        else:
+            self.streamer_url = streamer_url
         self.source_id = source_id
         self.queue = collections.deque()
         self.stop = 0
@@ -62,15 +81,15 @@ class Server(video_pb2_grpc.VideoServiceServicer):
     
     def streamer_connection(self):
         logger.info("streamer_connection")
-        with grpc.insecure_channel(self.streamer_url) as channel:
-            stub = video_pb2_grpc.VideoServiceStub(channel)
+        channel = connect_to_streamer(self.streamer_url)
+        stub = video_pb2_grpc.VideoServiceStub(channel)
 
-            response_stream = stub.Stream(self.generator())
-            try:
-                for chunk in response_stream:
-                    self.queue.append(chunk.frames)
-            except grpc.RpcError as e:
-                print(f"RpcError: {e.code()} - {e.details()}.")
+        response_stream = stub.Stream(self.generator())
+        try:
+            for chunk in response_stream:
+                self.queue.append(chunk.frames)
+        except grpc.RpcError as e:
+            print(f"RpcError: {e.code()} - {e.details()}.")
 
     def Stream(self, request_iterator, context):
 
@@ -106,7 +125,7 @@ class Server(video_pb2_grpc.VideoServiceServicer):
 
 def serve():
     server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
-    video_pb2_grpc.add_VideoServiceServicer_to_server(Server(), server)
+    video_pb2_grpc.add_VideoServiceServicer_to_server(Servicer(), server)
     server.add_insecure_port('0.0.0.0:50001')
     server.start()
     server.wait_for_termination()

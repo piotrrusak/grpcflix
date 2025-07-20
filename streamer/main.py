@@ -2,7 +2,7 @@ import grpc
 import video_pb2
 import video_pb2_grpc
 
-import sys, time, threading, collections, cv2, random, concurrent, utils
+import sys, time, threading, collections, random, concurrent, utils, os, yaml
 import numpy as np
 
 import logging
@@ -27,6 +27,9 @@ logger.addHandler(console_handler)
 
 # Because of root logger (every custom logger is child of root logger)
 logger.propagate = False
+
+with open(os.path.join(os.path.dirname(__file__), 'config.yml'), 'r') as f:
+    config = yaml.safe_load(f)
 
 class Streamer(video_pb2_grpc.VideoServiceServicer):
 

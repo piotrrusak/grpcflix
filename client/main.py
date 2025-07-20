@@ -2,7 +2,7 @@ import grpc
 import video_pb2
 import video_pb2_grpc
 
-import sys, time, threading, collections, cv2, multiprocessing
+import sys, time, threading, collections, cv2, multiprocessing, yaml, os
 import numpy as np
 
 import logging
@@ -28,18 +28,38 @@ logger.addHandler(console_handler)
 # Because of root logger (every custom logger is child of root logger)
 logger.propagate = False
 
+with open(os.path.join(os.path.dirname(__file__), 'config.yml'), 'r') as f:
+    config = yaml.safe_load(f)
+
+def connect_to_server(address, retries=10, delay=2):
+    for attempt in range(retries):
+        try:
+            logger.info(f"Connecting to streamer at {address} (attempt {attempt + 1})")
+            channel = grpc.insecure_channel(address)
+            grpc.channel_ready_future(channel).result(timeout=3)
+            logger.info("Successfully connected to streamer!")
+            return channel
+        except grpc.FutureTimeoutError:
+            logger.warning(f"Streamer not ready yet, retrying in {delay} seconds...")
+            time.sleep(delay)
+    raise ConnectionError(f"Failed to connect to streamer at {address} after {retries} attempts.")
+
 class Client:
 
     def __init__(
                  self,
-                #  server_url='server:50001',
+                 server_url_docker='server:50001',
                  server_url='localhost:50001',
                  ):
         self.start = 1
         self.timestamp = 0
         self.stop = 0
         self.queue = collections.deque()
-        self.server_url = server_url
+
+        if config["docker"] == "True":
+            self.server_url = server_url_docker
+        else:
+            self.server_url = server_url
 
         time.sleep(4)
 
@@ -58,29 +78,29 @@ class Client:
     
     def server_connection(self):
         logger.info("server_connection")
-        with grpc.insecure_channel(self.server_url) as channel:
-            stub = video_pb2_grpc.VideoServiceStub(channel)
-            response_stream = stub.Stream(self.generator())
-            buffer = b''
-            try:
-                for chunk in response_stream:
-                    buffer += chunk.frames
+        channel = connect_to_server(self.server_url)
+        stub = video_pb2_grpc.VideoServiceStub(channel)
+        response_stream = stub.Stream(self.generator())
+        buffer = b''
+        try:
+            for chunk in response_stream:
+                buffer += chunk.frames
 
-                    while len(buffer) >= (1080 * 1080 * 3):
-                        frame_bytes = buffer[:1080 * 1080 * 3]
-                        buffer = buffer[1080 * 1080 * 3:]
-                        
-                        frame = np.frombuffer(frame_bytes, dtype=np.uint8).reshape((1080, 1080, 3))
-                        cv2.imshow("Klatka", frame)
-                        if cv2.waitKey(int(1000 / 60)) & 0xFF == ord('q'):
-                            self.stop = True
-                            break
-
-                    if self.stop:
+                while len(buffer) >= (1080 * 1080 * 3):
+                    frame_bytes = buffer[:1080 * 1080 * 3]
+                    buffer = buffer[1080 * 1080 * 3:]
+                    
+                    frame = np.frombuffer(frame_bytes, dtype=np.uint8).reshape((1080, 1080, 3))
+                    cv2.imshow("Klatka", frame)
+                    if cv2.waitKey(int(1000 / 60)) & 0xFF == ord('q'):
+                        self.stop = True
                         break
 
-            except grpc.RpcError as e:
-                print(f"RpcError: {e.code()} - {e.details()}.")
+                if self.stop:
+                    break
+
+        except grpc.RpcError as e:
+            print(f"RpcError: {e.code()} - {e.details()}.")
 
 
 if __name__ == '__main__':
