@@ -1,0 +1,51 @@
+syntax = "proto3";
+package video;
+
+service ClientServerService {
+  rpc Stream(stream ClientMessage) returns (stream ServerMessage1);
+}
+
+message ClientMessage {
+  oneof payload {
+    StartRequest start = 1;
+    StopRequest stop = 2;
+    PauseRequest pause = 3;
+    UnpauseRequest unpause = 4;
+  }
+}
+
+message ServerMessage1 {
+  oneof payload {
+    VideoChunk1 video_chunk = 1;
+    ServerPauseRequest1 server_pause_request = 2;
+    ServerUnpauseRequest1 server_unpause_request = 3;
+  }
+}
+
+message ServerPauseRequest1 {
+  string timestamp = 1;
+}
+
+message ServerUnpauseRequest1 {
+  string timestamp = 1;
+}
+
+message StartRequest {
+  string timestamp = 1;
+}
+
+message StopRequest {
+  string reason = 1;
+}
+
+message PauseRequest {
+  string timestamp = 1;
+}
+
+message UnpauseRequest {
+  string timestamp = 1;
+}
+
+message VideoChunk1 {
+  bytes frames = 1;
+}

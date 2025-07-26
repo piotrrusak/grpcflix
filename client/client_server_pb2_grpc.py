@@ -3,9 +3,9 @@
 import grpc
 import warnings
 
-import video_pb2 as video__pb2
+import client_server_pb2 as client__server__pb2
 
-GRPC_GENERATED_VERSION = '1.71.0'
+GRPC_GENERATED_VERSION = '1.73.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,14 +18,14 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in video_pb2_grpc.py depends on'
+        + f' but the generated code in client_server_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
     )
 
 
-class VideoServiceStub(object):
+class ClientServerServiceStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -35,13 +35,13 @@ class VideoServiceStub(object):
             channel: A grpc.Channel.
         """
         self.Stream = channel.stream_stream(
-                '/video.VideoService/Stream',
-                request_serializer=video__pb2.ClientMessage.SerializeToString,
-                response_deserializer=video__pb2.VideoChunk.FromString,
+                '/video.ClientServerService/Stream',
+                request_serializer=client__server__pb2.ClientMessage.SerializeToString,
+                response_deserializer=client__server__pb2.ServerMessage1.FromString,
                 _registered_method=True)
 
 
-class VideoServiceServicer(object):
+class ClientServerServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Stream(self, request_iterator, context):
@@ -51,22 +51,22 @@ class VideoServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
 
-def add_VideoServiceServicer_to_server(servicer, server):
+def add_ClientServerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Stream': grpc.stream_stream_rpc_method_handler(
                     servicer.Stream,
-                    request_deserializer=video__pb2.ClientMessage.FromString,
-                    response_serializer=video__pb2.VideoChunk.SerializeToString,
+                    request_deserializer=client__server__pb2.ClientMessage.FromString,
+                    response_serializer=client__server__pb2.ServerMessage1.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'video.VideoService', rpc_method_handlers)
+            'video.ClientServerService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('video.VideoService', rpc_method_handlers)
+    server.add_registered_method_handlers('video.ClientServerService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
-class VideoService(object):
+class ClientServerService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -83,9 +83,9 @@ class VideoService(object):
         return grpc.experimental.stream_stream(
             request_iterator,
             target,
-            '/video.VideoService/Stream',
-            video__pb2.ClientMessage.SerializeToString,
-            video__pb2.VideoChunk.FromString,
+            '/video.ClientServerService/Stream',
+            client__server__pb2.ClientMessage.SerializeToString,
+            client__server__pb2.ServerMessage1.FromString,
             options,
             channel_credentials,
             insecure,

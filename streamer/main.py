@@ -1,8 +1,7 @@
 import grpc
-import video_pb2
-import video_pb2_grpc
+import server_streamer_pb2, server_streamer_pb2_grpc
 
-import sys, time, threading, collections, random, concurrent, utils, os, yaml
+import sys, time, threading, collections, random, concurrent, utils, os, yaml, cv2
 import numpy as np
 
 import logging
@@ -31,14 +30,31 @@ logger.propagate = False
 with open(os.path.join(os.path.dirname(__file__), 'config.yml'), 'r') as f:
     config = yaml.safe_load(f)
 
-class Streamer(video_pb2_grpc.VideoServiceServicer):
+def get_video_info(video_path):
+    cap = cv2.VideoCapture(video_path)
+
+    if not cap.isOpened():
+        raise ValueError("Nie udało się otworzyć pliku wideo.")
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    cap.release()
+    return width, height, fps
+
+class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
 
     def __init__(self, source_id=0):
         self.source_id = source_id
         self.sources = dict()
         self.pointer = -1
-        self.chunk_size = 2097152 # 2MB
+        # self.chunk_size = 2097152 # 2MB
+        self.chunk_size = 3499200 # 1080 * 1080 * 3
+        # self.chunk_size = 3145728 # 3MB
+        # self.chunk_size =  4194304 # 4MB
         self.current_data = utils.convert_video_to_bytes("video.mp4")
+        print(get_video_info("video.mp4"))
     
     def get_next_chunk_of_current_data(self):
         self.pointer += 1
@@ -50,10 +66,10 @@ class Streamer(video_pb2_grpc.VideoServiceServicer):
         def handle_requests():
             print(time.time())
             try:
-                for msg in request_iterator:
-                    if(msg.HasField("start")):
+                for message in request_iterator:
+                    if(message.HasField("server_start_request")):
                         requests.add("start")
-                    elif(msg.HasField("stop")):
+                    elif(message.HasField("server_stop_request")):
                         requests.add("stop")
             except grpc.RpcError as e:
                 print("Error: ", e)
@@ -64,8 +80,10 @@ class Streamer(video_pb2_grpc.VideoServiceServicer):
             frames = self.get_next_chunk_of_current_data()
             if len(frames) == 0:
                 break
-            
-            yield video_pb2.VideoChunk(frames=frames)
+            logger.info(str(f"Send video chunk ({self.pointer}) to server, timestamp: " + str(time.time())))
+            yield server_streamer_pb2.StreamerMessage(
+                video_chunk=server_streamer_pb2.VideoChunk(frames=frames)
+            )
 
             if len(requests) != 0:
                 print(requests)
@@ -73,7 +91,7 @@ class Streamer(video_pb2_grpc.VideoServiceServicer):
 
 def serve():
     streamer = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
-    video_pb2_grpc.add_VideoServiceServicer_to_server(Streamer(), streamer)
+    server_streamer_pb2_grpc.add_ServerStreamerServiceServicer_to_server(Streamer(), streamer)
     streamer.add_insecure_port('0.0.0.0:50002')
     streamer.start()
     streamer.wait_for_termination()

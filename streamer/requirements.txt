@@ -5,3 +5,4 @@ numpy
 matplotlib
 ffmpeg-python
 pyyaml
+opencv-python
