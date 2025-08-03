@@ -50,6 +50,15 @@ logger.propagate = False```
 
 # Issues:
 
-- Long term, pauza przetwarzana natychmiast, jeszcze nwm pewnie pare kanałów grpc.
-- Short term, przesyłany timestamp to timestamp frame_id, i wtedy odtwarzamy od tego frame dane.
+- Long term, pauza przetwarzana natychmiast, jeszcze nwm pewnie pare kanałów grpc. | Tak, wiele kanałów grpc to jest ta droga, potem z jednego stuba sie robi pare kanałów:
+
 ```
+service TaskService {
+  rpc ProcessImage(stream ImageChunk) returns (Result);
+  rpc TranscodeVideo(stream VideoChunk) returns (Result);
+  rpc ComputeStatistics(DataSet) returns (StatsResult);
+}
+
+```
+
+- Short term, przesyłany timestamp to timestamp frame_id, i wtedy odtwarzamy od tego frame dane. | Zmiana architektury ze wzlędu na zbyt duże zużycie ramu.

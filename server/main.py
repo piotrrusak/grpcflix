@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 # logger.setLevel(logging.NOTSET / logging.DEBUG / logging.INFO / logging.WARNING / logging.ERROR / logging.CRITICAL)
 # Sets the minimum level of logs that will be taken into account (i.e., processed).
 # If not set, have value of logging.NOTSET, then logger takes value of root logger i.e. logging.WARNING.
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
@@ -56,6 +56,7 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
             self.streamer_url = streamer_url_docker
         else:
             self.streamer_url = streamer_url
+        self.info = ""
         self.source_id = source_id
         self.queue = collections.deque()
         self.stop = 0
@@ -68,15 +69,12 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
         
     
     def generator(self):
-        if self.start:
-            yield server_streamer_pb2.ServerMessage(
-                server_start_request=server_streamer_pb2.ServerStartRequest()
-            )
-            self.start = 0
-
+        yield server_streamer_pb2.ServerStreamerMessage(
+            server_start_request=server_streamer_pb2.ServerStartRequest()
+        )
         while not self.stop:
             time.sleep(0.01)
-        yield server_streamer_pb2.ServerMessage(
+        yield server_streamer_pb2.ServerStreamerMessage(
             server_stop_request=server_streamer_pb2.ServerStopRequest()
         )
     
@@ -88,7 +86,12 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
         response_stream = stub.Stream(self.generator())
         try:
             for message in response_stream:
-                self.queue.append(message.video_chunk.frames)
+                if message.HasField("info"):
+                    logger.info("Server got info.")
+                    self.info = message.info.info
+                elif message.HasField("chunk"):
+                    logger.info("Server got chunk.")
+                    self.queue.append(message.chunk.chunk)
         except grpc.RpcError as e:
             print(f"RpcError: {e.code()} - {e.details()}.")
 
@@ -100,16 +103,16 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
             print(time.time())
             try:
                 for msg in request_iterator:
-                    if(msg.HasField("start")):
+                    if(msg.HasField("client_start_request")):
                         logger.info("Server got start request from client.")
                         requests["start"] = 0
-                    elif(msg.HasField("stop")):
+                    elif(msg.HasField("client_stop_request")):
                         logger.info("Server got stop request from client.")
                         requests["stop"] = 0
-                    elif(msg.HasField("pause")):
+                    elif(msg.HasField("client_pause_request")):
                         logger.info("Server got pause request from client.")
                         requests["pause"] = int(msg.pause.timestamp)
-                    elif(msg.HasField("unpause")):
+                    elif(msg.HasField("client_unpause_request")):
                         logger.info("Server got unpause request from client.")
                         requests["unpause"] = int(msg.unpause.timestamp)
             except grpc.RpcError as e:
@@ -126,6 +129,10 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
             while id in self.client_status.keys():
                 id = random.randint(0, 10000)
             self.client_status[id] = self.client_status[0]
+        
+        yield client_server_pb2.ServerClientMessage(
+            info=client_server_pb2.ServerClientInfo(info=self.info)
+        )
 
         while context.is_active():
             if not self.pause:
@@ -133,8 +140,8 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                 frames = self.queue[self.client_status[id]]
                 self.client_status[id] += 1
                 logger.info("Send ServerMessage")
-                yield client_server_pb2.ServerMessage1(
-                    video_chunk = client_server_pb2.VideoChunk1(frames=frames)
+                yield client_server_pb2.ServerClientMessage(
+                    chunk=client_server_pb2.ServerClientChunk(chunk=frames)
                 )
 
             if len(requests) != 0:
@@ -148,8 +155,8 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                         if key == id:
                             continue
                         self.client_status[key] = requests["pause"]
-                        yield client_server_pb2.ServerMessage1(
-                            server_pause_request = client_server_pb2.ServerPauseRequest1(timestamp=str(requests["pause"]))
+                        yield client_server_pb2.ServerClientMessage(
+                            server_pause_request = client_server_pb2.ServerPauseRequest(timestamp=str(requests["pause"]))
                         )
                     requests.pop("pause")
                 if "unpause" in requests.keys():
@@ -158,7 +165,7 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                         if key == id:
                             continue
                         self.client_status[key] = requests["unpause"]
-                        yield client_server_pb2.ServerMessage1(
+                        yield client_server_pb2.ServerClientMessage(
                             server_unpause_request = client_server_pb2.ServerUnpauseRequest1(timestamp=str(requests["unpause"]))
                         )
                     requests.pop("unpause")

@@ -24,31 +24,25 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15server_streamer.proto\x12\x05video\"\x88\x02\n\rServerMessage\x12\x39\n\x14server_start_request\x18\x01 \x01(\x0b\x32\x19.video.ServerStartRequestH\x00\x12\x37\n\x13server_stop_request\x18\x02 \x01(\x0b\x32\x18.video.ServerStopRequestH\x00\x12\x39\n\x14server_pause_request\x18\x03 \x01(\x0b\x32\x19.video.ServerPauseRequestH\x00\x12=\n\x16server_unpause_request\x18\x04 \x01(\x0b\x32\x1b.video.ServerUnpauseRequestH\x00\x42\t\n\x07payload\"\xc8\x01\n\x0fStreamerMessage\x12(\n\x0bvideo_chunk\x18\x01 \x01(\x0b\x32\x11.video.VideoChunkH\x00\x12=\n\x16streamer_pause_request\x18\x02 \x01(\x0b\x32\x1b.video.StreamerPauseRequestH\x00\x12\x41\n\x18streamer_unpause_request\x18\x03 \x01(\x0b\x32\x1d.video.StreamerUnpauseRequestH\x00\x42\t\n\x07payload\"\x14\n\x12ServerStartRequest\"\x13\n\x11ServerStopRequest\"\'\n\x12ServerPauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\")\n\x14StreamerPauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\")\n\x14ServerUnpauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"+\n\x16StreamerUnpauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"\x1c\n\nVideoChunk\x12\x0e\n\x06\x66rames\x18\x01 \x01(\x0c\x32S\n\x15ServerStreamerService\x12:\n\x06Stream\x12\x14.video.ServerMessage\x1a\x16.video.StreamerMessage(\x01\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15server_streamer.proto\x12\x05video\"\x96\x01\n\x15ServerStreamerMessage\x12\x39\n\x14server_start_request\x18\x01 \x01(\x0b\x32\x19.video.ServerStartRequestH\x00\x12\x37\n\x13server_stop_request\x18\x02 \x01(\x0b\x32\x18.video.ServerStopRequestH\x00\x42\t\n\x07payload\"z\n\x15StreamerServerMessage\x12)\n\x04info\x18\x01 \x01(\x0b\x32\x19.video.StreamerServerInfoH\x00\x12+\n\x05\x63hunk\x18\x02 \x01(\x0b\x32\x1a.video.StreamerServerChunkH\x00\x42\t\n\x07payload\"\x14\n\x12ServerStartRequest\"\x13\n\x11ServerStopRequest\"$\n\x13StreamerServerChunk\x12\r\n\x05\x63hunk\x18\x01 \x01(\x0c\"\"\n\x12StreamerServerInfo\x12\x0c\n\x04info\x18\x01 \x01(\t2a\n\x15ServerStreamerService\x12H\n\x06Stream\x12\x1c.video.ServerStreamerMessage\x1a\x1c.video.StreamerServerMessage(\x01\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'server_streamer_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_SERVERMESSAGE']._serialized_start=33
-  _globals['_SERVERMESSAGE']._serialized_end=297
-  _globals['_STREAMERMESSAGE']._serialized_start=300
-  _globals['_STREAMERMESSAGE']._serialized_end=500
-  _globals['_SERVERSTARTREQUEST']._serialized_start=502
-  _globals['_SERVERSTARTREQUEST']._serialized_end=522
-  _globals['_SERVERSTOPREQUEST']._serialized_start=524
-  _globals['_SERVERSTOPREQUEST']._serialized_end=543
-  _globals['_SERVERPAUSEREQUEST']._serialized_start=545
-  _globals['_SERVERPAUSEREQUEST']._serialized_end=584
-  _globals['_STREAMERPAUSEREQUEST']._serialized_start=586
-  _globals['_STREAMERPAUSEREQUEST']._serialized_end=627
-  _globals['_SERVERUNPAUSEREQUEST']._serialized_start=629
-  _globals['_SERVERUNPAUSEREQUEST']._serialized_end=670
-  _globals['_STREAMERUNPAUSEREQUEST']._serialized_start=672
-  _globals['_STREAMERUNPAUSEREQUEST']._serialized_end=715
-  _globals['_VIDEOCHUNK']._serialized_start=717
-  _globals['_VIDEOCHUNK']._serialized_end=745
-  _globals['_SERVERSTREAMERSERVICE']._serialized_start=747
-  _globals['_SERVERSTREAMERSERVICE']._serialized_end=830
+  _globals['_SERVERSTREAMERMESSAGE']._serialized_start=33
+  _globals['_SERVERSTREAMERMESSAGE']._serialized_end=183
+  _globals['_STREAMERSERVERMESSAGE']._serialized_start=185
+  _globals['_STREAMERSERVERMESSAGE']._serialized_end=307
+  _globals['_SERVERSTARTREQUEST']._serialized_start=309
+  _globals['_SERVERSTARTREQUEST']._serialized_end=329
+  _globals['_SERVERSTOPREQUEST']._serialized_start=331
+  _globals['_SERVERSTOPREQUEST']._serialized_end=350
+  _globals['_STREAMERSERVERCHUNK']._serialized_start=352
+  _globals['_STREAMERSERVERCHUNK']._serialized_end=388
+  _globals['_STREAMERSERVERINFO']._serialized_start=390
+  _globals['_STREAMERSERVERINFO']._serialized_end=424
+  _globals['_SERVERSTREAMERSERVICE']._serialized_start=426
+  _globals['_SERVERSTREAMERSERVICE']._serialized_end=523
 # @@protoc_insertion_point(module_scope)

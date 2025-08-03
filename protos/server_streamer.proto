@@ -2,23 +2,20 @@ syntax = "proto3";
 package video;
 
 service ServerStreamerService {
-  rpc Stream(stream ServerMessage) returns (stream StreamerMessage);
+  rpc Stream(stream ServerStreamerMessage) returns (stream StreamerServerMessage);
 }
 
-message ServerMessage {
+message ServerStreamerMessage {
   oneof payload {
     ServerStartRequest server_start_request = 1;
     ServerStopRequest server_stop_request = 2;
-    ServerPauseRequest server_pause_request = 3;
-    ServerUnpauseRequest server_unpause_request = 4;
   }
 }
 
-message StreamerMessage {
+message StreamerServerMessage {
   oneof payload {
-    VideoChunk video_chunk = 1;
-    StreamerPauseRequest streamer_pause_request = 2;
-    StreamerUnpauseRequest streamer_unpause_request = 3;
+    StreamerServerInfo info = 1;
+    StreamerServerChunk chunk = 2;
   }
 }
 
@@ -30,22 +27,10 @@ message ServerStopRequest {
 
 }
 
-message ServerPauseRequest {
-  string timestamp = 1;
+message StreamerServerChunk {
+  bytes chunk = 1;
 }
 
-message StreamerPauseRequest {
-  string timestamp = 1;
-}
-
-message ServerUnpauseRequest {
-  string timestamp = 1;
-}
-
-message StreamerUnpauseRequest {
-  string timestamp = 1;
-}
-
-message VideoChunk {
-  bytes frames = 1;
+message StreamerServerInfo {
+  string info = 1;
 }

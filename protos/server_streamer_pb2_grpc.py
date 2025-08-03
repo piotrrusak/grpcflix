@@ -36,8 +36,8 @@ class ServerStreamerServiceStub(object):
         """
         self.Stream = channel.stream_stream(
                 '/video.ServerStreamerService/Stream',
-                request_serializer=server__streamer__pb2.ServerMessage.SerializeToString,
-                response_deserializer=server__streamer__pb2.StreamerMessage.FromString,
+                request_serializer=server__streamer__pb2.ServerStreamerMessage.SerializeToString,
+                response_deserializer=server__streamer__pb2.StreamerServerMessage.FromString,
                 _registered_method=True)
 
 
@@ -55,8 +55,8 @@ def add_ServerStreamerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Stream': grpc.stream_stream_rpc_method_handler(
                     servicer.Stream,
-                    request_deserializer=server__streamer__pb2.ServerMessage.FromString,
-                    response_serializer=server__streamer__pb2.StreamerMessage.SerializeToString,
+                    request_deserializer=server__streamer__pb2.ServerStreamerMessage.FromString,
+                    response_serializer=server__streamer__pb2.StreamerServerMessage.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -84,8 +84,8 @@ class ServerStreamerService(object):
             request_iterator,
             target,
             '/video.ServerStreamerService/Stream',
-            server__streamer__pb2.ServerMessage.SerializeToString,
-            server__streamer__pb2.StreamerMessage.FromString,
+            server__streamer__pb2.ServerStreamerMessage.SerializeToString,
+            server__streamer__pb2.StreamerServerMessage.FromString,
             options,
             channel_credentials,
             insecure,

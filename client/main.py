@@ -1,7 +1,7 @@
 import grpc
 import client_server_pb2, client_server_pb2_grpc
 
-import sys, time, threading, collections, cv2, multiprocessing, yaml, os, pygame
+import sys, time, threading, collections, cv2, multiprocessing, yaml, os, pygame, json, tempfile
 import numpy as np
 
 import logging
@@ -52,6 +52,7 @@ class Client:
                  ):
         self.start = 1
         self.timestamp = 0
+        self.info = None
 
         self.frame_id = 0
         
@@ -70,8 +71,8 @@ class Client:
 
     def generator(self):
         if self.start:
-            yield client_server_pb2.ClientMessage(
-                start=client_server_pb2.StartRequest(timestamp=str(self.timestamp))
+            yield client_server_pb2.ClientServerMessage(
+                client_start_request=client_server_pb2.ClientStartRequest(timestamp=str(self.timestamp))
             )
             self.start = False
 
@@ -80,51 +81,60 @@ class Client:
                 time.sleep(0.01)
             if self.pause_on_id:
                 logger.info("Client sends pause request to server.")
-                yield client_server_pb2.ClientMessage(
-                    pause=client_server_pb2.PauseRequest(timestamp=str(self.timestamp))
+                yield client_server_pb2.ClientServerMessage(
+                    client_pause_request=client_server_pb2.ClientPauseRequest(timestamp=str(self.frame_id))
                 )
                 self.pause_on_id = 0
             if self.unpause_on_id:
                 logger.info("Client sends unpause request to server")
-                yield client_server_pb2.ClientMessage(
-                    unpause=client_server_pb2.UnpauseRequest(timestamp=str(self.timestamp))
+                yield client_server_pb2.ClientServerMessage(
+                    client_unpause_request=client_server_pb2.ClientUnpauseRequest(timestamp=str(self.frame_id))
                 )
                 self.unpause_on_id = 0
         logger.info("Client stops.")
-        yield client_server_pb2.ClientMessage(
-            stop=client_server_pb2.StopRequest(reason="user_cancelled")
+        yield client_server_pb2.ClientServerMessage(
+            client_stop_request=client_server_pb2.ClientStopRequest(reason="user_cancelled")
         )
-        
+    
+    def buffer_to_queue(self):
+        while self.info is None:
+            time.sleep(0.01)
+        for segment in self.info:
+            print(segment)
+            while len(self.buffer) < segment[0]:
+                time.sleep(0.01)
+            self.queue.append(self.buffer[:segment[0]])
+            self.buffer = self.buffer[segment[0]:]
+
     def server_connection(self):
         logger.info("server_connection")
         channel = connect_to_server(self.server_url)
         stub = client_server_pb2_grpc.ClientServerServiceStub(channel)
         response_stream = stub.Stream(self.generator())
-        buffer = b''
         try:
-            for chunk in response_stream:
-                buffer += chunk.video_chunk.frames
-                if chunk.HasField("video_chunk"):
-                    while len(buffer) > (1080 * 1080 * 3):
-                        self.queue.append(buffer[:1080*1080*3])
-                        buffer = buffer[1080*1080*3:]
-                if chunk.HasField("server_pause_request"):
+            for message in response_stream:
+                if message.HasField("info"):
+                    self.info = json.loads(message.info.info)
+                if message.HasField("chunk"):
+                    self.buffer += message.chunk.chunk
+                if message.HasField("server_pause_request"):
                     self.pause = 1
-                if chunk.HasField("server_unpause_request"):
+                if message.HasField("server_unpause_request"):
                     self.pause = 0
+                    self.queue.clear()
         except grpc.RpcError as e:
             print(f"RpcError: {e.code()} - {e.details()}.")
         finally:
             cv2.destroyAllWindows()
-        
+
     def projection(self):
         pygame.init()
         screen = pygame.display.set_mode((1080, 1080))
         pygame.display.flip()
         
-        clock = pygame.time.Clock()  # To control frame rate
+        clock = pygame.time.Clock()
         running = True
-        
+
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -140,51 +150,59 @@ class Client:
                         self.pause = 0
 
             if not self.pause and len(self.queue) > 0:
-                frame_bytes = self.queue.popleft()
-                logger.info("Show frame.")
-                
-                # Convert frame bytes to numpy array and reshape to the correct dimensions
-                frame = np.frombuffer(frame_bytes, dtype=np.uint8).reshape((1080, 1080, 3))
-                frame_surface = pygame.surfarray.make_surface(np.transpose(frame, (1, 0, 2)))
-                screen.blit(frame_surface, (0, 0))
-                pygame.display.flip()  # Update the screen
-                self.timestamp += 1
-                clock.tick(60)  # Limit frame rate to 60 FPS
-        
+                video_bytes = self.queue.popleft()
+                logger.info("Next segment")
+
+                # Zapis chunku do tymczasowego pliku
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
+                    tmp_file.write(video_bytes)
+                    tmp_path = tmp_file.name
+
+                cap = cv2.VideoCapture(tmp_path)
+                if not cap.isOpened():
+                    logger.warning("Nie można otworzyć chunku video.")
+                    os.remove(tmp_path)
+                    continue
+
+                while cap.isOpened():
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frame = np.transpose(frame, (1, 0, 2))
+                    surface = pygame.surfarray.make_surface(frame)
+                    screen.blit(surface, (0, 0))
+                    pygame.display.flip()
+                    clock.tick(60)
+
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            running = False
+                            break
+                        if event.type == pygame.KEYDOWN:
+                            if event.key == pygame.K_p:
+                                logger.info("PAUSE")
+                                self.pause_on_id = 1
+                                self.pause = 1
+                            if event.key == pygame.K_u:
+                                logger.info("UNPAUSE")
+                                self.unpause_on_id = 1
+                                self.pause = 0
+
+                    if self.pause:
+                        break
+
+                cap.release()
+                os.remove(tmp_path)
+
         pygame.quit()
-        sys.exit()
-            #     logger.info("could")
-            #     cv2.imshow("grpcflix", frame)
-            #     key = cv2.waitKey(1)
-            #     if key != -1:
-            #         if key == ord('q'):
-            #             self.stop = True
-            #             logger.info("Detected q")
-            #         elif key == ord('p'):
-            #             logger.info("Detected p")
-            #             self.pause_on_id = 1
-            #         elif key == ord('i'):
-            #             logger.info("Detected i")
-            #             self.unpause_on_id = 1
-            #     logger.info("Current key value: " + str(key))
-            # else:
-            #     key = cv2.waitKey(int(1000 / 60))
-            #     if key != -1:
-            #         if key == ord('q'):
-            #             self.stop = True
-            #             logger.info("Detected q")
-            #         elif key == ord('p'):
-            #             logger.info("Detected p")
-            #             self.pause_on_id = 1
-            #         elif key == ord('i'):
-            #             logger.info("Detected i")
-            #             self.unpause_on_id = 1
-        
 
 
 if __name__ == '__main__':
     client = Client()
 
     threading.Thread(target=client.server_connection).start()
-    
+    threading.Thread(target=client.buffer_to_queue).start()
+
     client.projection()

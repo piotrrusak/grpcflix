@@ -24,31 +24,33 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13\x63lient_server.proto\x12\x05video\"\xb4\x01\n\rClientMessage\x12$\n\x05start\x18\x01 \x01(\x0b\x32\x13.video.StartRequestH\x00\x12\"\n\x04stop\x18\x02 \x01(\x0b\x32\x12.video.StopRequestH\x00\x12$\n\x05pause\x18\x03 \x01(\x0b\x32\x13.video.PauseRequestH\x00\x12(\n\x07unpause\x18\x04 \x01(\x0b\x32\x15.video.UnpauseRequestH\x00\x42\t\n\x07payload\"\xc2\x01\n\x0eServerMessage1\x12)\n\x0bvideo_chunk\x18\x01 \x01(\x0b\x32\x12.video.VideoChunk1H\x00\x12:\n\x14server_pause_request\x18\x02 \x01(\x0b\x32\x1a.video.ServerPauseRequest1H\x00\x12>\n\x16server_unpause_request\x18\x03 \x01(\x0b\x32\x1c.video.ServerUnpauseRequest1H\x00\x42\t\n\x07payload\"(\n\x13ServerPauseRequest1\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"*\n\x15ServerUnpauseRequest1\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"!\n\x0cStartRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"\x1d\n\x0bStopRequest\x12\x0e\n\x06reason\x18\x01 \x01(\t\"!\n\x0cPauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"#\n\x0eUnpauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"\x1d\n\x0bVideoChunk1\x12\x0e\n\x06\x66rames\x18\x01 \x01(\x0c\x32P\n\x13\x43lientServerService\x12\x39\n\x06Stream\x12\x14.video.ClientMessage\x1a\x15.video.ServerMessage1(\x01\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13\x63lient_server.proto\x12\x05video\"\x8e\x02\n\x13\x43lientServerMessage\x12\x39\n\x14\x63lient_start_request\x18\x01 \x01(\x0b\x32\x19.video.ClientStartRequestH\x00\x12\x37\n\x13\x63lient_stop_request\x18\x02 \x01(\x0b\x32\x18.video.ClientStopRequestH\x00\x12\x39\n\x14\x63lient_pause_request\x18\x03 \x01(\x0b\x32\x19.video.ClientPauseRequestH\x00\x12=\n\x16\x63lient_unpause_request\x18\x04 \x01(\x0b\x32\x1b.video.ClientUnpauseRequestH\x00\x42\t\n\x07payload\"\xee\x01\n\x13ServerClientMessage\x12\'\n\x04info\x18\x01 \x01(\x0b\x32\x17.video.ServerClientInfoH\x00\x12)\n\x05\x63hunk\x18\x02 \x01(\x0b\x32\x18.video.ServerClientChunkH\x00\x12\x39\n\x14server_pause_request\x18\x03 \x01(\x0b\x32\x19.video.ServerPauseRequestH\x00\x12=\n\x16server_unpause_request\x18\x04 \x01(\x0b\x32\x1b.video.ServerUnpauseRequestH\x00\x42\t\n\x07payload\"\'\n\x12ServerPauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\")\n\x14ServerUnpauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"\'\n\x12\x43lientStartRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"#\n\x11\x43lientStopRequest\x12\x0e\n\x06reason\x18\x01 \x01(\t\"\'\n\x12\x43lientPauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\")\n\x14\x43lientUnpauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"\"\n\x11ServerClientChunk\x12\r\n\x05\x63hunk\x18\x01 \x01(\x0c\" \n\x10ServerClientInfo\x12\x0c\n\x04info\x18\x01 \x01(\t2[\n\x13\x43lientServerService\x12\x44\n\x06Stream\x12\x1a.video.ClientServerMessage\x1a\x1a.video.ServerClientMessage(\x01\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'client_server_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_CLIENTMESSAGE']._serialized_start=31
-  _globals['_CLIENTMESSAGE']._serialized_end=211
-  _globals['_SERVERMESSAGE1']._serialized_start=214
-  _globals['_SERVERMESSAGE1']._serialized_end=408
-  _globals['_SERVERPAUSEREQUEST1']._serialized_start=410
-  _globals['_SERVERPAUSEREQUEST1']._serialized_end=450
-  _globals['_SERVERUNPAUSEREQUEST1']._serialized_start=452
-  _globals['_SERVERUNPAUSEREQUEST1']._serialized_end=494
-  _globals['_STARTREQUEST']._serialized_start=496
-  _globals['_STARTREQUEST']._serialized_end=529
-  _globals['_STOPREQUEST']._serialized_start=531
-  _globals['_STOPREQUEST']._serialized_end=560
-  _globals['_PAUSEREQUEST']._serialized_start=562
-  _globals['_PAUSEREQUEST']._serialized_end=595
-  _globals['_UNPAUSEREQUEST']._serialized_start=597
-  _globals['_UNPAUSEREQUEST']._serialized_end=632
-  _globals['_VIDEOCHUNK1']._serialized_start=634
-  _globals['_VIDEOCHUNK1']._serialized_end=663
-  _globals['_CLIENTSERVERSERVICE']._serialized_start=665
-  _globals['_CLIENTSERVERSERVICE']._serialized_end=745
+  _globals['_CLIENTSERVERMESSAGE']._serialized_start=31
+  _globals['_CLIENTSERVERMESSAGE']._serialized_end=301
+  _globals['_SERVERCLIENTMESSAGE']._serialized_start=304
+  _globals['_SERVERCLIENTMESSAGE']._serialized_end=542
+  _globals['_SERVERPAUSEREQUEST']._serialized_start=544
+  _globals['_SERVERPAUSEREQUEST']._serialized_end=583
+  _globals['_SERVERUNPAUSEREQUEST']._serialized_start=585
+  _globals['_SERVERUNPAUSEREQUEST']._serialized_end=626
+  _globals['_CLIENTSTARTREQUEST']._serialized_start=628
+  _globals['_CLIENTSTARTREQUEST']._serialized_end=667
+  _globals['_CLIENTSTOPREQUEST']._serialized_start=669
+  _globals['_CLIENTSTOPREQUEST']._serialized_end=704
+  _globals['_CLIENTPAUSEREQUEST']._serialized_start=706
+  _globals['_CLIENTPAUSEREQUEST']._serialized_end=745
+  _globals['_CLIENTUNPAUSEREQUEST']._serialized_start=747
+  _globals['_CLIENTUNPAUSEREQUEST']._serialized_end=788
+  _globals['_SERVERCLIENTCHUNK']._serialized_start=790
+  _globals['_SERVERCLIENTCHUNK']._serialized_end=824
+  _globals['_SERVERCLIENTINFO']._serialized_start=826
+  _globals['_SERVERCLIENTINFO']._serialized_end=858
+  _globals['_CLIENTSERVERSERVICE']._serialized_start=860
+  _globals['_CLIENTSERVERSERVICE']._serialized_end=951
 # @@protoc_insertion_point(module_scope)
