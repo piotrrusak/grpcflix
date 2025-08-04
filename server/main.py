@@ -99,28 +99,36 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
 
     def Stream(self, request_iterator, context):
 
-        requests = dict()
-
         def handle_requests():
             logger.info("handle_requests")
             try:
                 for msg in request_iterator:
                     if(msg.HasField("client_start_request")):
                         logger.info("Server got start request from client.")
-                        requests["start"] = 0
                     elif(msg.HasField("client_stop_request")):
                         logger.info("Server got stop request from client.")
-                        requests["stop"] = 0
                     elif(msg.HasField("client_pause_request")):
-                        logger.info("Server got pause request from client.")
-                        requests["pause"] = int(msg.client_pause_request.timestamp)
+                        self.pause = 1
+                        for key in self.client_status.keys():
+                            self.client_status[key] = int(int(msg.client_pause_request.timestamp) / 60)
+                        print(self.client_status)
+                        for key in self.outgoing.keys():
+                            self.outgoing[key].append(("pause", int(msg.client_pause_request.timestamp)))
                     elif(msg.HasField("client_unpause_request")):
-                        logger.info("Server got unpause request from client.")
-                        requests["unpause"] = int(msg.client_unpause_request.timestamp)
+                        for key in self.client_status.keys():
+                            self.client_status[key] = int(msg.client_unpause_request.timestamp)//60
+                        for key in self.outgoing.keys():
+                            self.outgoing[key].append(("unpause", int(msg.client_unpause_request.timestamp)//60))
+                        self.pause = 0
+                    elif(msg.HasField("client_status_answer")):
+                        for key in self.client_status.keys():
+                            self.client_status[key] = int(int(msg.client_status_answer.frame_id)/60)
+                        for key in self.outgoing.keys():
+                            self.outgoing[key].append(("pause", int(int(msg.client_status_answer.frame_id))))
+                        
             except grpc.RpcError as e:
                 logger.error(f"RpcError: {e.code()} - {e.details()}")
 
-        
         threading.Thread(target=handle_requests).start()
 
         if len(self.client_status) == 0:
@@ -133,8 +141,9 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
             self.client_status[id] = 0
             logger.info("NEW USER")
             self.new_user_pause = 1
-        self.outgoing[id] = collections.deque()
         
+        self.outgoing[id] = collections.deque()
+
         yield client_server_pb2.ServerClientMessage(
             info=client_server_pb2.ServerClientInfo(info=self.info)
         )
@@ -146,15 +155,16 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
 
             if not self.pause and self.client_status[id] < len(self.queue) and len(self.outgoing[id]) == 0:
                 frames = self.queue[self.client_status[id]]
-                self.client_status[id] += 1
                 logger.info(f"Send segment: {self.client_status[id]}")
+                self.client_status[id] += 1
                 yield client_server_pb2.ServerClientMessage(
                     chunk=client_server_pb2.ServerClientChunk(chunk=frames)
                 )
             
+            
             if id == 0 and self.new_user_pause:
                 yield client_server_pb2.ServerClientMessage(
-                    server_new_user_joined_request=client_server_pb2.ServerNewUserJoinedRequest()
+                    server_status_request=client_server_pb2.ServerStatusRequest()
                 )
                 self.new_user_pause = 0
             
@@ -171,28 +181,6 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                     yield client_server_pb2.ServerClientMessage(
                         server_unpause_request = client_server_pb2.ServerUnpauseRequest(timestamp=str(load))
                     )
-
-            if len(requests) != 0:
-                if "start" in requests.keys():
-                    pass
-                if "stop" in requests.keys():
-                    pass
-                if "pause" in requests.keys():
-                    self.pause = 1
-                    for key in self.client_status.keys():
-                        self.client_status[key] = int(int(requests["pause"]) / 60)
-                    print(self.client_status)
-                    for key in self.outgoing.keys():
-                        self.outgoing[key].append(("pause", requests["pause"]))
-                    requests.pop("pause")
-                if "unpause" in requests.keys():
-                    for key in self.client_status.keys():
-                        self.client_status[key] = int(requests["unpause"]/60)
-                    for key in self.outgoing.keys():
-                        self.outgoing[key].append(("unpause", int(requests["unpause"]/60)))
-                    requests.pop("unpause")
-                    self.pause = 0
-
  
 def serve():
     server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))

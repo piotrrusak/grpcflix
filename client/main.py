@@ -45,56 +45,56 @@ def connect_to_server(address, retries=10, delay=2):
 
 class Client:
 
-    def __init__(
-                 self,
-                 server_url_docker='server:50001',
-                 server_url='localhost:50001',
-                 ):
-        self.start = 1
-        self.timestamp = 0
-        self.info = None
-
-        self.frame_id = 0
-        
-        self.stop = 0
-        self.pause = 0
-        self.pause_on_id = 0
-        self.unpause_on_id = 0
+    def __init__(self, server_url_docker='server:50001', server_url='localhost:50001'):
 
         self.queue = collections.deque()
         self.buffer = b''
-
         if config["docker"] == "True":
             self.server_url = server_url_docker
         else:
             self.server_url = server_url
+
+        self.start = 1
         
-        self.new_user = 0
+        self.info = None
+        self.frame_id = 0
+        self.pause = 0
+
+        self.pause_button_status = 0
+        self.unpause_button_status = 0
+        
+        self.status_request = 0
+
+        self.stop = 0
 
     def generator(self):
+
         if self.start:
             yield client_server_pb2.ClientServerMessage(
-                client_start_request=client_server_pb2.ClientStartRequest(timestamp=str(self.timestamp))
+                client_start_request=client_server_pb2.ClientStartRequest()
             )
-            self.start = False
 
         while not self.stop:
-            print(self.new_user)
-            while self.pause_on_id == 0 and self.unpause_on_id == 0 and self.new_user == 0:
+            while self.pause_button_status == 0 and self.unpause_button_status == 0 and self.status_request == 0:
                 time.sleep(0.1)
-            if self.pause_on_id or self.new_user:
+            if self.pause_button_status:
                 logger.info("Client sends pause request to server.")
                 yield client_server_pb2.ClientServerMessage(
                     client_pause_request=client_server_pb2.ClientPauseRequest(timestamp=str(self.frame_id))
                 )
-                self.pause_on_id = 0
-                self.new_user = 0
-            elif self.unpause_on_id:
-                logger.info("Client sends unpause request to server")
+                self.pause_button_status = 0
+            elif self.unpause_button_status:
+                logger.info("Client sends unpause request to server.")
                 yield client_server_pb2.ClientServerMessage(
                     client_unpause_request=client_server_pb2.ClientUnpauseRequest(timestamp=str(self.frame_id))
                 )
-                self.unpause_on_id = 0
+                self.unpause_button_status = 0
+            elif self.status_request:
+                logger.info("Client sends its status to server")
+                yield client_server_pb2.ClientServerMessage(
+                    client_status_answer=client_server_pb2.ClientStatusAnswer(frame_id=str(self.frame_id))
+                )
+                self.status_request = 0
             else:
                 logger.info("Client sends heartbeat to server")
                 yield client_server_pb2.ClientServerMessage(
@@ -102,10 +102,11 @@ class Client:
                 )
         logger.info("Client stops.")
         yield client_server_pb2.ClientServerMessage(
-            client_stop_request=client_server_pb2.ClientStopRequest(reason="user_cancelled")
+            client_stop_request=client_server_pb2.ClientStopRequest()
         )
     
     def buffer_to_queue(self, start):
+        logger.info(f"CLIENT RESTARTS FORM {start}")
         while self.info is None:
             time.sleep(0.01)
         for i in range(len(self.info)):
@@ -116,33 +117,34 @@ class Client:
                 self.buffer = self.buffer[self.info[i][0]:]
 
     def server_connection(self):
-        logger.info("server_connection")
         channel = connect_to_server(self.server_url)
         stub = client_server_pb2_grpc.ClientServerServiceStub(channel)
         response_stream = stub.Stream(self.generator())
         try:
             for message in response_stream:
                 if message.HasField("info"):
+                    logger.info("Client got info")
                     self.info = json.loads(message.info.info)
                 if message.HasField("chunk"):
+                    logger.info("Client got chunk")
                     self.buffer += message.chunk.chunk
                 if message.HasField("server_pause_request"):
                     logger.info("Client got server_pause_request")
                     self.pause = 1
                     self.queue.clear()
+                    self.buffer = b''
+                    self.frame_id = int(message.server_pause_request.timestamp)
                 if message.HasField("server_unpause_request"):
-                    threading.Thread(target=client.buffer_to_queue, args=(int(message.server_unpause_request.timestamp),)).start()
                     logger.info("Client got server_unpause_request")
-                    self.pause = 0
-                if message.HasField("server_new_user_joined_request"):
-                    self.pause = 1
+                    threading.Thread(target=client.buffer_to_queue, args=(int(message.server_unpause_request.timestamp),)).start()
                     self.queue.clear()
-                    self.new_user = 1
-                    logger.info(f"New User Pause: {self.new_user}")
-                    
-                    
-                # if message.HasField("heartbeat"):
-                #     logger.info("heartbeat")
+                    self.pause = 0
+                if message.HasField("server_status_request"):
+                    logger.info("Client got server_status_request")
+                    self.status_request = 1
+                if message.HasField("heartbeat"):
+                    # logger.info("heartbeat")
+                    pass
                     
         except grpc.RpcError as e:
             print(f"RpcError: {e.code()} - {e.details()}.")
@@ -165,11 +167,11 @@ class Client:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_p:
                         logger.info("PAUSE")
-                        self.pause_on_id = 1
+                        self.pause_button_status = 1
                         self.pause = 1
                     if event.key == pygame.K_u:
                         logger.info("UNPAUSE")
-                        self.unpause_on_id = 1
+                        self.unpause_button_status = 1
                         self.pause = 0
 
             if not self.pause and len(self.queue) > 0:
@@ -206,11 +208,11 @@ class Client:
                         if event.type == pygame.KEYDOWN:
                             if event.key == pygame.K_p:
                                 logger.info("PAUSE")
-                                self.pause_on_id = 1
+                                self.pause_button_status = 1
                                 self.pause = 1
                             if event.key == pygame.K_u:
                                 logger.info("UNPAUSE")
-                                self.unpause_on_id = 1
+                                self.unpause_button_status = 1
                                 self.pause = 0
 
                     if self.pause:
@@ -226,7 +228,6 @@ if __name__ == '__main__':
     client = Client()
 
     threading.Thread(target=client.server_connection).start()
-    # multiprocessing.Process(target=client.server_connection).start()
     threading.Thread(target=client.buffer_to_queue, args=(0,)).start()
 
     client.projection()

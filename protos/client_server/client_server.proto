@@ -12,6 +12,7 @@ message ClientServerMessage {
     ClientPauseRequest client_pause_request = 3;
     ClientUnpauseRequest client_unpause_request = 4;
     ClientServerHeartbeat heartbeat = 5;
+    ClientStatusAnswer client_status_answer = 6;
   }
 }
 
@@ -22,12 +23,16 @@ message ServerClientMessage {
     ServerPauseRequest server_pause_request = 3;
     ServerUnpauseRequest server_unpause_request = 4;
     ServerClientHeartbeat heartbeat = 5;
-    ServerNewUserJoinedRequest server_new_user_joined_request = 6;
+    ServerStatusRequest server_status_request = 6;
   }
 }
 
-message ServerNewUserJoinedRequest {
+message ServerStatusRequest {
   
+}
+
+message ClientStatusAnswer {
+  string frame_id = 1;
 }
 
 message ClientServerHeartbeat {
@@ -47,11 +52,11 @@ message ServerUnpauseRequest {
 }
 
 message ClientStartRequest {
-  string timestamp = 1;
+  
 }
 
 message ClientStopRequest {
-  string reason = 1;
+
 }
 
 message ClientPauseRequest {
