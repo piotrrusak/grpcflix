@@ -6,6 +6,15 @@ Prototype video streaming service using gRPC and Python – live chat and user-u
 python3 -m grpc_tools.protoc -I./ --python_out=. --grpc_python_out=. video.proto
 ```
 
+## scripts
+
+- **clog.sh**`<br>`deletes all .log files
+- **generpc.sh**`<br>`generates all grpc files and copies them to their destination
+- **grpclean.sh**`<br>`deletes all grpc files (apart from .proto)
+- **pyclean.sh**`<br>`deletes all __pycache__
+- **setup.sh**`<br>`sets up project
+- **setdown.sh**`<br>`sets down project
+
 # conclusions
 
 - **Qt/cv2:**`<br>`library for GUI in linux, requires that we open window and manipulate it, in main thread of process. So in cv2 requires it as well. Best practise is to just use cv2 in main thread of process of programm. In here i just use multiprocessing instead of threading.

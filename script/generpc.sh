@@ -1,5 +1,9 @@
-source protos/.venv/bin/activate
-./grpclean.sh
+cd protos
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd ..
+./script/grpclean.sh
 cd protos/client_server
 python3 -m grpc_tools.protoc -I./ --python_out=. --grpc_python_out=. client_server.proto
 cd ..
