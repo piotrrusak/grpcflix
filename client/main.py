@@ -68,6 +68,8 @@ class Client:
             self.server_url = server_url_docker
         else:
             self.server_url = server_url
+        
+        self.new_user = 0
 
     def generator(self):
         if self.start:
@@ -77,34 +79,41 @@ class Client:
             self.start = False
 
         while not self.stop:
-            while self.pause_on_id == 0 and self.unpause_on_id == 0:
-                time.sleep(0.01)
-            if self.pause_on_id:
+            print(self.new_user)
+            while self.pause_on_id == 0 and self.unpause_on_id == 0 and self.new_user == 0:
+                time.sleep(0.1)
+            if self.pause_on_id or self.new_user:
                 logger.info("Client sends pause request to server.")
                 yield client_server_pb2.ClientServerMessage(
                     client_pause_request=client_server_pb2.ClientPauseRequest(timestamp=str(self.frame_id))
                 )
                 self.pause_on_id = 0
-            if self.unpause_on_id:
+                self.new_user = 0
+            elif self.unpause_on_id:
                 logger.info("Client sends unpause request to server")
                 yield client_server_pb2.ClientServerMessage(
                     client_unpause_request=client_server_pb2.ClientUnpauseRequest(timestamp=str(self.frame_id))
                 )
                 self.unpause_on_id = 0
+            else:
+                logger.info("Client sends heartbeat to server")
+                yield client_server_pb2.ClientServerMessage(
+                    heartbeat=client_server_pb2.Heartbeat()
+                )
         logger.info("Client stops.")
         yield client_server_pb2.ClientServerMessage(
             client_stop_request=client_server_pb2.ClientStopRequest(reason="user_cancelled")
         )
     
-    def buffer_to_queue(self):
+    def buffer_to_queue(self, start):
         while self.info is None:
             time.sleep(0.01)
-        for segment in self.info:
-            print(segment)
-            while len(self.buffer) < segment[0]:
-                time.sleep(0.01)
-            self.queue.append(self.buffer[:segment[0]])
-            self.buffer = self.buffer[segment[0]:]
+        for i in range(len(self.info)):
+            if i >= start:
+                while len(self.buffer) < self.info[i][0]:
+                    time.sleep(0.01)
+                self.queue.append(self.buffer[:self.info[i][0]])
+                self.buffer = self.buffer[self.info[i][0]:]
 
     def server_connection(self):
         logger.info("server_connection")
@@ -118,10 +127,23 @@ class Client:
                 if message.HasField("chunk"):
                     self.buffer += message.chunk.chunk
                 if message.HasField("server_pause_request"):
+                    logger.info("Client got server_pause_request")
                     self.pause = 1
-                if message.HasField("server_unpause_request"):
-                    self.pause = 0
                     self.queue.clear()
+                if message.HasField("server_unpause_request"):
+                    threading.Thread(target=client.buffer_to_queue, args=(int(message.server_unpause_request.timestamp),)).start()
+                    logger.info("Client got server_unpause_request")
+                    self.pause = 0
+                if message.HasField("server_new_user_joined_request"):
+                    self.pause = 1
+                    self.queue.clear()
+                    self.new_user = 1
+                    logger.info(f"New User Pause: {self.new_user}")
+                    
+                    
+                # if message.HasField("heartbeat"):
+                #     logger.info("heartbeat")
+                    
         except grpc.RpcError as e:
             print(f"RpcError: {e.code()} - {e.details()}.")
         finally:
@@ -136,6 +158,7 @@ class Client:
         running = True
 
         while running:
+            time.sleep(0.1)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -151,9 +174,7 @@ class Client:
 
             if not self.pause and len(self.queue) > 0:
                 video_bytes = self.queue.popleft()
-                logger.info("Next segment")
 
-                # Zapis chunku do tymczasowego pliku
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
                     tmp_file.write(video_bytes)
                     tmp_path = tmp_file.name
@@ -163,8 +184,9 @@ class Client:
                     logger.warning("Nie można otworzyć chunku video.")
                     os.remove(tmp_path)
                     continue
-
+                
                 while cap.isOpened():
+                    self.frame_id += 1
                     ret, frame = cap.read()
                     if not ret:
                         break
@@ -175,6 +197,7 @@ class Client:
                     screen.blit(surface, (0, 0))
                     pygame.display.flip()
                     clock.tick(60)
+                    time.sleep(0.01) 
 
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
@@ -203,6 +226,7 @@ if __name__ == '__main__':
     client = Client()
 
     threading.Thread(target=client.server_connection).start()
-    threading.Thread(target=client.buffer_to_queue).start()
+    # multiprocessing.Process(target=client.server_connection).start()
+    threading.Thread(target=client.buffer_to_queue, args=(0,)).start()
 
     client.projection()

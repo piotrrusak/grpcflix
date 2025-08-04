@@ -11,6 +11,7 @@ message ClientServerMessage {
     ClientStopRequest client_stop_request = 2;
     ClientPauseRequest client_pause_request = 3;
     ClientUnpauseRequest client_unpause_request = 4;
+    ClientServerHeartbeat heartbeat = 5;
   }
 }
 
@@ -20,7 +21,21 @@ message ServerClientMessage {
     ServerClientChunk chunk = 2;
     ServerPauseRequest server_pause_request = 3;
     ServerUnpauseRequest server_unpause_request = 4;
+    ServerClientHeartbeat heartbeat = 5;
+    ServerNewUserJoinedRequest server_new_user_joined_request = 6;
   }
+}
+
+message ServerNewUserJoinedRequest {
+  
+}
+
+message ClientServerHeartbeat {
+
+}
+
+message ServerClientHeartbeat {
+
 }
 
 message ServerPauseRequest {

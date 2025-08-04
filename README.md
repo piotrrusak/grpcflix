@@ -42,7 +42,9 @@ logger.propagate = False```
 
 ---
 
-- **grpc:**`<br>`when changing .proto file, by careful about named arguments, and names of objects. 
+- **grpc:**`<br>`when changing .proto file, by careful about named arguments, and names of objects.
+
+- **first GIL problem**`<br>`projection with pygame oveloads GIL, because of this other threads has no possibility to run, because of this, projection blocked server_connection in client.
 
 
 

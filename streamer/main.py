@@ -36,18 +36,10 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         self.source_id = source_id
         self.sources = dict()
         self.pointer = -1
-        # self.chunk_size = 2097152 # 2MB
-        self.chunk_size = 3499200 # 1080 * 1080 * 3
-        # self.chunk_size = 3145728 # 3MB
-        # self.chunk_size =  4194304 # 4MB
         self.current_data = b''
+        self.info_str = ""
         self.info = ""
         self.load_data("output/")
-        
-    def get_next_chunk_of_current_data(self):
-        self.pointer += 1
-        logger.info("1: " + str(len(self.current_data)) + "\n2: " + str(self.pointer*self.chunk_size))
-        return self.current_data[(self.pointer)*self.chunk_size:(self.pointer+1)*self.chunk_size]
     
     def load_data(self, input_dir_path):
         self.current_data = b''
@@ -59,7 +51,10 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
             with open(os.path.join(input_dir_path, filename), 'rb') as f:
                 self.current_data += f.read()
         with open(os.path.join(input_dir_path, "info.json"), 'r') as f:
-            self.info += f.read()
+            self.info_str += f.read()
+        with open(os.path.join(input_dir_path, "info.json"), 'r') as f:
+            self.info = json.load(f)
+        
 
     def Stream(self, request_iterator, context):
         requests = set()
@@ -77,11 +72,16 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         threading.Thread(target=handle_requests).start()
 
         yield server_streamer_pb2.StreamerServerMessage(
-            info=server_streamer_pb2.StreamerServerInfo(info=self.info)
+            info=server_streamer_pb2.StreamerServerInfo(info=self.info_str)
         )
 
-        while context.is_active():
-            chunk = self.get_next_chunk_of_current_data()
+        i = 0
+        phase = 0
+        while context.is_active() and phase < len(self.current_data):
+            chunk = self.current_data[phase:(phase+self.info[i][0])]
+            phase += self.info[i][0]
+            i += 1
+            
             if len(chunk) == 0:
                 break
             logger.info(str(f"Send video chunk ({self.pointer}) to server, timestamp: " + str(time.time())))

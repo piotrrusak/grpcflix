@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13\x63lient_server.proto\x12\x05video\"\x8e\x02\n\x13\x43lientServerMessage\x12\x39\n\x14\x63lient_start_request\x18\x01 \x01(\x0b\x32\x19.video.ClientStartRequestH\x00\x12\x37\n\x13\x63lient_stop_request\x18\x02 \x01(\x0b\x32\x18.video.ClientStopRequestH\x00\x12\x39\n\x14\x63lient_pause_request\x18\x03 \x01(\x0b\x32\x19.video.ClientPauseRequestH\x00\x12=\n\x16\x63lient_unpause_request\x18\x04 \x01(\x0b\x32\x1b.video.ClientUnpauseRequestH\x00\x42\t\n\x07payload\"\xee\x01\n\x13ServerClientMessage\x12\'\n\x04info\x18\x01 \x01(\x0b\x32\x17.video.ServerClientInfoH\x00\x12)\n\x05\x63hunk\x18\x02 \x01(\x0b\x32\x18.video.ServerClientChunkH\x00\x12\x39\n\x14server_pause_request\x18\x03 \x01(\x0b\x32\x19.video.ServerPauseRequestH\x00\x12=\n\x16server_unpause_request\x18\x04 \x01(\x0b\x32\x1b.video.ServerUnpauseRequestH\x00\x42\t\n\x07payload\"\'\n\x12ServerPauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\")\n\x14ServerUnpauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"\'\n\x12\x43lientStartRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"#\n\x11\x43lientStopRequest\x12\x0e\n\x06reason\x18\x01 \x01(\t\"\'\n\x12\x43lientPauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\")\n\x14\x43lientUnpauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"\"\n\x11ServerClientChunk\x12\r\n\x05\x63hunk\x18\x01 \x01(\x0c\" \n\x10ServerClientInfo\x12\x0c\n\x04info\x18\x01 \x01(\t2[\n\x13\x43lientServerService\x12\x44\n\x06Stream\x12\x1a.video.ClientServerMessage\x1a\x1a.video.ServerClientMessage(\x01\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13\x63lient_server.proto\x12\x05video\"\xc1\x02\n\x13\x43lientServerMessage\x12\x39\n\x14\x63lient_start_request\x18\x01 \x01(\x0b\x32\x19.video.ClientStartRequestH\x00\x12\x37\n\x13\x63lient_stop_request\x18\x02 \x01(\x0b\x32\x18.video.ClientStopRequestH\x00\x12\x39\n\x14\x63lient_pause_request\x18\x03 \x01(\x0b\x32\x19.video.ClientPauseRequestH\x00\x12=\n\x16\x63lient_unpause_request\x18\x04 \x01(\x0b\x32\x1b.video.ClientUnpauseRequestH\x00\x12\x31\n\theartbeat\x18\x05 \x01(\x0b\x32\x1c.video.ClientServerHeartbeatH\x00\x42\t\n\x07payload\"\xee\x02\n\x13ServerClientMessage\x12\'\n\x04info\x18\x01 \x01(\x0b\x32\x17.video.ServerClientInfoH\x00\x12)\n\x05\x63hunk\x18\x02 \x01(\x0b\x32\x18.video.ServerClientChunkH\x00\x12\x39\n\x14server_pause_request\x18\x03 \x01(\x0b\x32\x19.video.ServerPauseRequestH\x00\x12=\n\x16server_unpause_request\x18\x04 \x01(\x0b\x32\x1b.video.ServerUnpauseRequestH\x00\x12\x31\n\theartbeat\x18\x05 \x01(\x0b\x32\x1c.video.ServerClientHeartbeatH\x00\x12K\n\x1eserver_new_user_joined_request\x18\x06 \x01(\x0b\x32!.video.ServerNewUserJoinedRequestH\x00\x42\t\n\x07payload\"\x1c\n\x1aServerNewUserJoinedRequest\"\x17\n\x15\x43lientServerHeartbeat\"\x17\n\x15ServerClientHeartbeat\"\'\n\x12ServerPauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\")\n\x14ServerUnpauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"\'\n\x12\x43lientStartRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"#\n\x11\x43lientStopRequest\x12\x0e\n\x06reason\x18\x01 \x01(\t\"\'\n\x12\x43lientPauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\")\n\x14\x43lientUnpauseRequest\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"\"\n\x11ServerClientChunk\x12\r\n\x05\x63hunk\x18\x01 \x01(\x0c\" \n\x10ServerClientInfo\x12\x0c\n\x04info\x18\x01 \x01(\t2[\n\x13\x43lientServerService\x12\x44\n\x06Stream\x12\x1a.video.ClientServerMessage\x1a\x1a.video.ServerClientMessage(\x01\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,25 +32,31 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'client_server_pb2', _global
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_CLIENTSERVERMESSAGE']._serialized_start=31
-  _globals['_CLIENTSERVERMESSAGE']._serialized_end=301
-  _globals['_SERVERCLIENTMESSAGE']._serialized_start=304
-  _globals['_SERVERCLIENTMESSAGE']._serialized_end=542
-  _globals['_SERVERPAUSEREQUEST']._serialized_start=544
-  _globals['_SERVERPAUSEREQUEST']._serialized_end=583
-  _globals['_SERVERUNPAUSEREQUEST']._serialized_start=585
-  _globals['_SERVERUNPAUSEREQUEST']._serialized_end=626
-  _globals['_CLIENTSTARTREQUEST']._serialized_start=628
-  _globals['_CLIENTSTARTREQUEST']._serialized_end=667
-  _globals['_CLIENTSTOPREQUEST']._serialized_start=669
-  _globals['_CLIENTSTOPREQUEST']._serialized_end=704
-  _globals['_CLIENTPAUSEREQUEST']._serialized_start=706
-  _globals['_CLIENTPAUSEREQUEST']._serialized_end=745
-  _globals['_CLIENTUNPAUSEREQUEST']._serialized_start=747
-  _globals['_CLIENTUNPAUSEREQUEST']._serialized_end=788
-  _globals['_SERVERCLIENTCHUNK']._serialized_start=790
-  _globals['_SERVERCLIENTCHUNK']._serialized_end=824
-  _globals['_SERVERCLIENTINFO']._serialized_start=826
-  _globals['_SERVERCLIENTINFO']._serialized_end=858
-  _globals['_CLIENTSERVERSERVICE']._serialized_start=860
-  _globals['_CLIENTSERVERSERVICE']._serialized_end=951
+  _globals['_CLIENTSERVERMESSAGE']._serialized_end=352
+  _globals['_SERVERCLIENTMESSAGE']._serialized_start=355
+  _globals['_SERVERCLIENTMESSAGE']._serialized_end=721
+  _globals['_SERVERNEWUSERJOINEDREQUEST']._serialized_start=723
+  _globals['_SERVERNEWUSERJOINEDREQUEST']._serialized_end=751
+  _globals['_CLIENTSERVERHEARTBEAT']._serialized_start=753
+  _globals['_CLIENTSERVERHEARTBEAT']._serialized_end=776
+  _globals['_SERVERCLIENTHEARTBEAT']._serialized_start=778
+  _globals['_SERVERCLIENTHEARTBEAT']._serialized_end=801
+  _globals['_SERVERPAUSEREQUEST']._serialized_start=803
+  _globals['_SERVERPAUSEREQUEST']._serialized_end=842
+  _globals['_SERVERUNPAUSEREQUEST']._serialized_start=844
+  _globals['_SERVERUNPAUSEREQUEST']._serialized_end=885
+  _globals['_CLIENTSTARTREQUEST']._serialized_start=887
+  _globals['_CLIENTSTARTREQUEST']._serialized_end=926
+  _globals['_CLIENTSTOPREQUEST']._serialized_start=928
+  _globals['_CLIENTSTOPREQUEST']._serialized_end=963
+  _globals['_CLIENTPAUSEREQUEST']._serialized_start=965
+  _globals['_CLIENTPAUSEREQUEST']._serialized_end=1004
+  _globals['_CLIENTUNPAUSEREQUEST']._serialized_start=1006
+  _globals['_CLIENTUNPAUSEREQUEST']._serialized_end=1047
+  _globals['_SERVERCLIENTCHUNK']._serialized_start=1049
+  _globals['_SERVERCLIENTCHUNK']._serialized_end=1083
+  _globals['_SERVERCLIENTINFO']._serialized_start=1085
+  _globals['_SERVERCLIENTINFO']._serialized_end=1117
+  _globals['_CLIENTSERVERSERVICE']._serialized_start=1119
+  _globals['_CLIENTSERVERSERVICE']._serialized_end=1210
 # @@protoc_insertion_point(module_scope)

@@ -64,7 +64,9 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
         self.timestamp = 0
         self.pause = 0
         self.client_status = dict()
+        self.outgoing = dict()
         time.sleep(3)
+        self.new_user_pause = 0
         threading.Thread(target=self.streamer_connection).start()
         
     
@@ -96,11 +98,11 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
             print(f"RpcError: {e.code()} - {e.details()}.")
 
     def Stream(self, request_iterator, context):
-        
+
         requests = dict()
 
         def handle_requests():
-            print(time.time())
+            logger.info("handle_requests")
             try:
                 for msg in request_iterator:
                     if(msg.HasField("client_start_request")):
@@ -111,10 +113,10 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                         requests["stop"] = 0
                     elif(msg.HasField("client_pause_request")):
                         logger.info("Server got pause request from client.")
-                        requests["pause"] = int(msg.pause.timestamp)
+                        requests["pause"] = int(msg.client_pause_request.timestamp)
                     elif(msg.HasField("client_unpause_request")):
                         logger.info("Server got unpause request from client.")
-                        requests["unpause"] = int(msg.unpause.timestamp)
+                        requests["unpause"] = int(msg.client_unpause_request.timestamp)
             except grpc.RpcError as e:
                 logger.error(f"RpcError: {e.code()} - {e.details()}")
 
@@ -128,21 +130,47 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
             id = random.randint(0, 10000)
             while id in self.client_status.keys():
                 id = random.randint(0, 10000)
-            self.client_status[id] = self.client_status[0]
+            self.client_status[id] = 0
+            logger.info("NEW USER")
+            self.new_user_pause = 1
+        self.outgoing[id] = collections.deque()
         
         yield client_server_pb2.ServerClientMessage(
             info=client_server_pb2.ServerClientInfo(info=self.info)
         )
 
         while context.is_active():
-            if not self.pause:
-                logger.debug(f"server_got_chunk {time.time()}")
+            yield client_server_pb2.ServerClientMessage(
+                heartbeat=client_server_pb2.ServerClientHeartbeat()
+            )
+
+            if not self.pause and self.client_status[id] < len(self.queue) and len(self.outgoing[id]) == 0:
                 frames = self.queue[self.client_status[id]]
                 self.client_status[id] += 1
-                logger.info("Send ServerMessage")
+                logger.info(f"Send segment: {self.client_status[id]}")
                 yield client_server_pb2.ServerClientMessage(
                     chunk=client_server_pb2.ServerClientChunk(chunk=frames)
                 )
+            
+            if id == 0 and self.new_user_pause:
+                yield client_server_pb2.ServerClientMessage(
+                    server_new_user_joined_request=client_server_pb2.ServerNewUserJoinedRequest()
+                )
+                self.new_user_pause = 0
+            
+            if len(self.outgoing[id]) > 0:
+                typ, load = self.outgoing[id].popleft()
+
+                if typ == "pause":
+                    logger.info(f"send pause: {id}")
+                    yield client_server_pb2.ServerClientMessage(
+                        server_pause_request = client_server_pb2.ServerPauseRequest(timestamp=str(load))
+                    )
+                if typ == "unpause":
+                    logger.info(f"send unpause: {id}")
+                    yield client_server_pb2.ServerClientMessage(
+                        server_unpause_request = client_server_pb2.ServerUnpauseRequest(timestamp=str(load))
+                    )
 
             if len(requests) != 0:
                 if "start" in requests.keys():
@@ -152,23 +180,18 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                 if "pause" in requests.keys():
                     self.pause = 1
                     for key in self.client_status.keys():
-                        if key == id:
-                            continue
-                        self.client_status[key] = requests["pause"]
-                        yield client_server_pb2.ServerClientMessage(
-                            server_pause_request = client_server_pb2.ServerPauseRequest(timestamp=str(requests["pause"]))
-                        )
+                        self.client_status[key] = int(int(requests["pause"]) / 60)
+                    print(self.client_status)
+                    for key in self.outgoing.keys():
+                        self.outgoing[key].append(("pause", requests["pause"]))
                     requests.pop("pause")
                 if "unpause" in requests.keys():
-                    self.pause = 0
                     for key in self.client_status.keys():
-                        if key == id:
-                            continue
-                        self.client_status[key] = requests["unpause"]
-                        yield client_server_pb2.ServerClientMessage(
-                            server_unpause_request = client_server_pb2.ServerUnpauseRequest1(timestamp=str(requests["unpause"]))
-                        )
+                        self.client_status[key] = int(requests["unpause"]/60)
+                    for key in self.outgoing.keys():
+                        self.outgoing[key].append(("unpause", int(requests["unpause"]/60)))
                     requests.pop("unpause")
+                    self.pause = 0
 
  
 def serve():
