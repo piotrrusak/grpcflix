@@ -5,3 +5,4 @@ rm -rf protos/.venv
 ./script/pyclean.sh
 ./script/grpclean.sh
 ./script/clog.sh
+./script/clegment.sh

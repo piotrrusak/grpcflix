@@ -1,5 +1,6 @@
 import grpc
 import server_streamer_pb2, server_streamer_pb2_grpc
+from video_segmenter import VideoSegmenter
 
 import sys, time, threading, collections, random, concurrent, os, yaml, cv2, json
 import numpy as np
@@ -14,8 +15,11 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         self.current_data = b''
         self.info_str = ""
         self.info = ""
-        self.load_data("output/")
-    
+        filename = "video.mp4"
+        self.video_segmenter = VideoSegmenter(f"resource/{filename}", f"segment/{filename.split(".")[0]}/info.json", f"segment/{filename.split(".")[0]}", 1)
+        self.video_segmenter.segment()
+        self.load_data("segment/video")
+
     def load_data(self, input_dir_path):
         self.current_data = b''
         self.info = ""

@@ -6,15 +6,16 @@ class VideoSegmenter():
         self.output_file_path = output_file_path
         self.output_dir_path = output_dir_path
         self.segment_duration = segment_duration
-
-        for filename in os.listdir(output_dir_path):
-            os.remove(os.path.join(self.output_dir_path, filename))
     
     def segment(self):
 
-        os.makedirs(self.output_dir_path, exist_ok=True)
+        if os.path.isdir(self.output_dir_path):
+            for filename in os.listdir(self.output_dir_path):
+                os.remove(os.path.join(self.output_dir_path, filename))
+        else:
+            os.makedirs(self.output_dir_path, exist_ok=True)
 
-        output_pattern = os.path.join(self.output_dir_path, "chunk_%03d.mp4")
+        output_pattern = os.path.join(self.output_dir_path, "segment_%03d.mp4")
 
         subprocess.run([
             "ffmpeg",
@@ -47,5 +48,6 @@ class VideoSegmenter():
             json.dump(temp, f, indent=4)
 
 if __name__ == '__main__':
-    vs = VideoSegmenter("video.mp4", "output/info.json", "output", 1)
-    vs.segment()
+    filename = "video.mp4"
+    video_segmenter = VideoSegmenter(f"resource/{filename}", f"segment/{filename.split(".")[0]}/info.json", f"segment/{filename.split(".")[0]}", 1)
+    video_segmenter.segment()

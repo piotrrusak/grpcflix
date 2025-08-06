@@ -1,6 +1,7 @@
 import grpc, server_streamer_pb2_grpc
 
 from streamer import Streamer
+from video_segmenter import VideoSegmenter
 
 import logging, sys, concurrent
 

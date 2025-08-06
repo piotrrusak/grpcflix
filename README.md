@@ -55,21 +55,4 @@ logger.propagate = False```
 
 - **first GIL problem**`<br>`projection with pygame oveloads GIL, because of this other threads has no possibility to run, because of this, projection blocked server_connection in client.
 
-
-
 # TODO
-
-# Issues:
-
-- Long term, pauza przetwarzana natychmiast, jeszcze nwm pewnie pare kanałów grpc. | Tak, wiele kanałów grpc to jest ta droga, potem z jednego stuba sie robi pare kanałów:
-
-```
-service TaskService {
-  rpc ProcessImage(stream ImageChunk) returns (Result);
-  rpc TranscodeVideo(stream VideoChunk) returns (Result);
-  rpc ComputeStatistics(DataSet) returns (StatsResult);
-}
-
-```
-
-- Short term, przesyłany timestamp to timestamp frame_id, i wtedy odtwarzamy od tego frame dane. | Zmiana architektury ze wzlędu na zbyt duże zużycie ramu.

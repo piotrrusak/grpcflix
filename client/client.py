@@ -20,7 +20,7 @@ def connect_to_server(address, logger, retries=10, delay=2):
 
 class Client:
 
-    def __init__(self, logger, server_url_docker='server:50001', server_url='localhost:50001'):
+    def __init__(self, logger, server_url='localhost:50001'):
         self.logger = logger
         self.queue = collections.deque()
         self.buffer = b''
@@ -171,7 +171,6 @@ class Client:
                     screen.blit(surface, (0, 0))
                     pygame.display.flip()
                     clock.tick(60)
-                    time.sleep(0.01) 
 
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:

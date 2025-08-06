@@ -20,7 +20,7 @@ def connect_to_streamer(address, logger, retries=10, delay=2):
 
 class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
 
-    def __init__(self, logger, streamer_url_docker='streamer:50002', streamer_url='localhost:50002', source_id=0):
+    def __init__(self, logger, streamer_url='localhost:50002', source_id=0):
         self.streamer_url = streamer_url
         self.logger = logger
         self.info = ""
