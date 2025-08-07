@@ -55,4 +55,6 @@ logger.propagate = False```
 
 - **first GIL problem**`<br>`projection with pygame oveloads GIL, because of this other threads has no possibility to run, because of this, projection blocked server_connection in client.
 
+- **cv2 flags**`<br>` Used by VideoCapture.set(flag, value): https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html#gaeb8dd9c89c10a5c63c139bf7c4f5704d
+
 # TODO

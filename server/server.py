@@ -85,7 +85,7 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                         for key in self.client_status.keys():
                             self.client_status[key] = int(message.client_unpause_request.timestamp)//60
                         for key in self.outgoing.keys():
-                            self.outgoing[key].append(("unpause", int(message.client_unpause_request.timestamp)//60))
+                            self.outgoing[key].append(("unpause", int(message.client_unpause_request.timestamp)))
                         self.pause = 0
                     elif(message.HasField("client_status_answer")):
                         for key in self.client_status.keys():

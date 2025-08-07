@@ -108,7 +108,8 @@ class Client:
                     self.frame_id = int(message.server_pause_request.timestamp)
                 if message.HasField("server_unpause_request"):
                     self.logger.info("Client got server_unpause_request")
-                    threading.Thread(target=self.buffer_to_queue, args=(int(message.server_unpause_request.timestamp),)).start()
+                    self.frame_id =int(message.server_unpause_request.timestamp)
+                    threading.Thread(target=self.buffer_to_queue, args=(int(message.server_unpause_request.timestamp)//60,)).start()
                     self.queue.clear()
                     self.pause = 0
                 if message.HasField("server_status_request"):
@@ -154,6 +155,7 @@ class Client:
                     tmp_path = tmp_file.name
 
                 cap = cv2.VideoCapture(tmp_path)
+                cap.set(cv2.CAP_PROP_POS_FRAMES, self.frame_id%60)
                 if not cap.isOpened():
                     self.logger.warning("Nie można otworzyć chunku video.")
                     os.remove(tmp_path)
