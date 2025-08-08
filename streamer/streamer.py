@@ -15,10 +15,10 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         self.current_data = b''
         self.info_str = ""
         self.info = ""
-        filename = "video.mp4"
+        filename = "sao1.mp4"
         self.video_segmenter = VideoSegmenter(f"resource/{filename}", f"segment/{filename.split(".")[0]}/info.json", f"segment/{filename.split(".")[0]}", 1)
         self.video_segmenter.segment()
-        self.load_data("segment/video")
+        self.load_data("segment/sao1")
 
     def load_data(self, input_dir_path):
         self.current_data = b''
@@ -57,8 +57,8 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         i = 0
         phase = 0
         while context.is_active() and phase < len(self.current_data):
-            chunk = self.current_data[phase:(phase+self.info[i][0])]
-            phase += self.info[i][0]
+            chunk = self.current_data[phase:(phase+self.info[i])]
+            phase += self.info[i]
             i += 1
             
             if len(chunk) == 0:

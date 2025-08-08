@@ -27,6 +27,5 @@ if __name__ == '__main__':
     client = Client(logger)
 
     threading.Thread(target=client.server_connection).start()
-    threading.Thread(target=client.buffer_to_queue, args=(0,)).start()
 
     client.projection()

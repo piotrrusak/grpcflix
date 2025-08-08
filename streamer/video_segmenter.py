@@ -6,6 +6,10 @@ class VideoSegmenter():
         self.output_file_path = output_file_path
         self.output_dir_path = output_dir_path
         self.segment_duration = segment_duration
+        cap = cv2.VideoCapture(input_file_path)
+        self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.fps = cap.get(cv2.CAP_PROP_FPS)
     
     def segment(self):
 
@@ -15,7 +19,7 @@ class VideoSegmenter():
         else:
             os.makedirs(self.output_dir_path, exist_ok=True)
 
-        output_pattern = os.path.join(self.output_dir_path, "segment_%03d.mp4")
+        output_pattern = os.path.join(self.output_dir_path, "segment_%06d.mp4")
 
         subprocess.run([
             "ffmpeg",
@@ -36,13 +40,12 @@ class VideoSegmenter():
             cap = cv2.VideoCapture(os.path.join(self.output_dir_path, file_path))
 
             size = os.path.getsize(os.path.join(self.output_dir_path, file_path))
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = cap.get(cv2.CAP_PROP_FPS)
             
             cap.release()
 
-            temp.append([size, width, height, fps])
+            temp.append(size)
+
+        temp.append([self.width, self.height, self.fps])
 
         with open(self.output_file_path, 'w') as f:            
             json.dump(temp, f, indent=4)

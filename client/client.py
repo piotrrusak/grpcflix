@@ -50,13 +50,13 @@ class Client:
             while self.pause_button_status == 0 and self.unpause_button_status == 0 and self.status_request == 0:
                 time.sleep(0.1)
             if self.pause_button_status:
-                self.logger.info("Client sends pause request to server.")
+                self.logger.info(f"Client sends pause request to server. {self.frame_id}")
                 yield client_server_pb2.ClientServerMessage(
                     client_pause_request=client_server_pb2.ClientPauseRequest(timestamp=str(self.frame_id))
                 )
                 self.pause_button_status = 0
             elif self.unpause_button_status:
-                self.logger.info("Client sends unpause request to server.")
+                self.logger.info(f"Client sends unpause request to server. {self.frame_id}")
                 yield client_server_pb2.ClientServerMessage(
                     client_unpause_request=client_server_pb2.ClientUnpauseRequest(timestamp=str(self.frame_id))
                 )
@@ -81,12 +81,12 @@ class Client:
         self.logger.info(f"CLIENT RESTARTS FORM {start}")
         while self.info is None:
             time.sleep(0.01)
-        for i in range(len(self.info)):
+        for i in range(len(self.info)-1):
             if i >= start:
-                while len(self.buffer) < self.info[i][0]:
+                while len(self.buffer) < self.info[i]:
                     time.sleep(0.01)
-                self.queue.append(self.buffer[:self.info[i][0]])
-                self.buffer = self.buffer[self.info[i][0]:]
+                self.queue.append(self.buffer[:self.info[i]])
+                self.buffer = self.buffer[self.info[i]:]
 
     def server_connection(self):
         channel = connect_to_server(self.server_url, self.logger)
@@ -99,7 +99,7 @@ class Client:
                     self.info = json.loads(message.info.info)
                 if message.HasField("chunk"):
                     self.logger.info("Client got chunk")
-                    self.buffer += message.chunk.chunk
+                    self.queue.append(message.chunk.chunk)
                 if message.HasField("server_pause_request"):
                     self.logger.info("Client got server_pause_request")
                     self.pause = 1
@@ -109,9 +109,10 @@ class Client:
                 if message.HasField("server_unpause_request"):
                     self.logger.info("Client got server_unpause_request")
                     self.frame_id =int(message.server_unpause_request.timestamp)
-                    threading.Thread(target=self.buffer_to_queue, args=(int(message.server_unpause_request.timestamp)//60,)).start()
+                    self.buffer = b''
                     self.queue.clear()
                     self.pause = 0
+                    threading.Thread(target=self.buffer_to_queue, args=(int(message.server_unpause_request.timestamp)//int(round(self.info[-1][2])),)).start()
                 if message.HasField("server_status_request"):
                     self.logger.info("Client got server_status_request")
                     self.status_request = 1
@@ -126,14 +127,16 @@ class Client:
 
     def projection(self):
         pygame.init()
-        screen = pygame.display.set_mode((1080, 1080))
+        while self.info == None:
+            time.sleep(0.01)
+        screen = pygame.display.set_mode((self.info[-1][0], self.info[-1][1]))
         pygame.display.flip()
         
         clock = pygame.time.Clock()
         running = True
 
         while running:
-            time.sleep(0.1)
+            time.sleep(0.0001)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -155,7 +158,7 @@ class Client:
                     tmp_path = tmp_file.name
 
                 cap = cv2.VideoCapture(tmp_path)
-                cap.set(cv2.CAP_PROP_POS_FRAMES, self.frame_id%60)
+                cap.set(cv2.CAP_PROP_POS_FRAMES, self.frame_id%int(round(self.info[-1][2])))
                 if not cap.isOpened():
                     self.logger.warning("Nie można otworzyć chunku video.")
                     os.remove(tmp_path)
@@ -172,7 +175,7 @@ class Client:
                     surface = pygame.surfarray.make_surface(frame)
                     screen.blit(surface, (0, 0))
                     pygame.display.flip()
-                    clock.tick(60)
+                    clock.tick(int(round(self.info[-1][2])))
 
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:

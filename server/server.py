@@ -2,7 +2,7 @@ import grpc
 import client_server_pb2, client_server_pb2_grpc
 import server_streamer_pb2, server_streamer_pb2_grpc
 
-import sys, time, threading, collections, random, concurrent, os, yaml
+import sys, time, threading, collections, random, concurrent, os, yaml, json
 import numpy as np
 
 def connect_to_streamer(address, logger, retries=10, delay=2):
@@ -23,7 +23,8 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
     def __init__(self, logger, streamer_url='localhost:50002', source_id=0):
         self.streamer_url = streamer_url
         self.logger = logger
-        self.info = ""
+        self.info_str = ""
+        self.info = None
         self.source_id = source_id
         self.queue = collections.deque()
         self.stop = 0
@@ -57,7 +58,8 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
             for message in response_stream:
                 if message.HasField("info"):
                     self.logger.info("Server got info.")
-                    self.info = message.info.info
+                    self.info_str = message.info.info
+                    self.info = json.loads(self.info_str)
                 elif message.HasField("chunk"):
                     self.logger.info("Server got chunk.")
                     self.queue.append(message.chunk.chunk)
@@ -77,19 +79,19 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                     elif(message.HasField("client_pause_request")):
                         self.pause = 1
                         for key in self.client_status.keys():
-                            self.client_status[key] = int(int(message.client_pause_request.timestamp) / 60)
+                            self.client_status[key] = int(message.client_pause_request.timestamp)//int(round(self.info[-1][2]))
                         print(self.client_status)
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("pause", int(message.client_pause_request.timestamp)))
                     elif(message.HasField("client_unpause_request")):
                         for key in self.client_status.keys():
-                            self.client_status[key] = int(message.client_unpause_request.timestamp)//60
+                            self.client_status[key] = int(message.client_unpause_request.timestamp)//int(round(self.info[-1][2]))
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("unpause", int(message.client_unpause_request.timestamp)))
                         self.pause = 0
                     elif(message.HasField("client_status_answer")):
                         for key in self.client_status.keys():
-                            self.client_status[key] = int(int(message.client_status_answer.frame_id)/60)
+                            self.client_status[key] = int(message.client_status_answer.frame_id)//int(round(self.info[-1][2]))
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("pause", int(int(message.client_status_answer.frame_id))))
                         
@@ -100,19 +102,22 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
 
         if len(self.client_status) == 0:
             id = 0
-            self.client_status[0] = 0
+
+            self.logger.info(f"First user joined.")
         else:
             id = random.randint(0, 10000)
             while id in self.client_status.keys():
                 id = random.randint(0, 10000)
-            self.client_status[id] = 0
-            self.logger.info("NEW USER")
-            self.new_user_pause = 1
+
+            self.logger.info(f"New user joined.")
+        
+        self.client_status[id] = 0
+        self.new_user_pause = 1
         
         self.outgoing[id] = collections.deque()
 
         yield client_server_pb2.ServerClientMessage(
-            info=client_server_pb2.ServerClientInfo(info=self.info)
+            info=client_server_pb2.ServerClientInfo(info=self.info_str)
         )
 
         while context.is_active():
