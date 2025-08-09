@@ -68,6 +68,17 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
 
     def Stream(self, request_iterator, context):
 
+        running = True
+
+        if len(self.client_status) == 0:
+            id = 0
+            self.logger.info(f"First user joined to server.")
+        else:
+            id = random.randint(0, 10000)
+            while id in self.client_status.keys():
+                id = random.randint(0, 10000)
+            self.logger.info(f"New user joined to server.")
+        
         def handle_requests():
             self.logger.info("handle_requests")
             try:
@@ -75,7 +86,11 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                     if(message.HasField("client_start_request")):
                         self.logger.info("Server got start request from client.")
                     elif(message.HasField("client_stop_request")):
-                        self.logger.info("Server got stop request from client.")
+                        self.logger.info(f"Server got stop request from client with id: {id}.")
+                        del self.queue[id]
+                        del self.client_status[id]
+                        running = False
+                        return
                     elif(message.HasField("client_pause_request")):
                         self.pause = 1
                         for key in self.client_status.keys():
@@ -96,18 +111,9 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                             self.outgoing[key].append(("pause", int(int(message.client_status_answer.frame_id))))
                         
             except grpc.RpcError as e:
-                self.logger.error(f"RpcError: {e.code()} - {e.details()}")
+                self.logger.error(f"RpcError")
 
         threading.Thread(target=handle_requests).start()
-
-        if len(self.client_status) == 0:
-            id = 0
-            self.logger.info(f"First user joined to server.")
-        else:
-            id = random.randint(0, 10000)
-            while id in self.client_status.keys():
-                id = random.randint(0, 10000)
-            self.logger.info(f"New user joined to server.")
         
         self.client_status[id] = 0
         self.new_user_pause = 1
@@ -119,6 +125,10 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
         )
 
         while context.is_active():
+            
+            if not running:
+                return
+
             yield client_server_pb2.ServerClientMessage(
                 heartbeat=client_server_pb2.ServerClientHeartbeat()
             )

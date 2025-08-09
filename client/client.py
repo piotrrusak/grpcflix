@@ -72,7 +72,8 @@ class Client:
                 yield client_server_pb2.ClientServerMessage(
                     heartbeat=client_server_pb2.Heartbeat()
                 )
-        self.logger.info("Client stops.")
+        
+        self.logger.info("Client sends client_stop_request.")
         yield client_server_pb2.ClientServerMessage(
             client_stop_request=client_server_pb2.ClientStopRequest()
         )
@@ -107,7 +108,7 @@ class Client:
                     self.buffer = b''
                     self.pause = 1
                 if message.HasField("server_unpause_request"):
-                    self.logger.info(f"fClient got server_unpause_request. (self.frame_id = {message.server_unpause_request.frame_id})")
+                    self.logger.info(f"Client got server_unpause_request. (self.frame_id = {message.server_unpause_request.frame_id})")
                     self.frame_id =int(message.server_unpause_request.frame_id)
                     self.buffer = b''
                     self.queue.clear()
@@ -151,6 +152,9 @@ class Client:
                         self.logger.info("UNPAUSE")
                         self.unpause_button_status = 1
                         self.pause = 0
+                    if event.key == pygame.K_q:
+                        self.stop = 1
+                        running = False
 
             if not self.pause and len(self.queue) > 0:
                 video_bytes = self.queue.popleft()
@@ -190,6 +194,9 @@ class Client:
                             if event.key == pygame.K_u:
                                 self.unpause_button_status = 1
                                 self.pause = 0
+                            if event.key == pygame.K_q:
+                                self.stop = 1
+                                running = False
 
                     if self.pause:
                         break

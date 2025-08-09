@@ -15,7 +15,7 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         self.current_data = b''
         self.info_str = ""
         self.info = ""
-        filename = "sao1.mp4"
+        filename = input()
         
         self.logger.info("Streamer starts video_segmenter.segment")
         self.video_segmenter = VideoSegmenter(f"resource/{filename}", f"segment/{filename.split(".")[0]}/info.json", f"segment/{filename.split(".")[0]}", 1)
