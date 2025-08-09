@@ -41,17 +41,15 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         
 
     def Stream(self, request_iterator, context):
-        requests = set()
         def handle_requests():
-            print(time.time())
             try:
                 for message in request_iterator:
                     if(message.HasField("server_start_request")):
-                        requests.add("start")
+                        pass
                     elif(message.HasField("server_stop_request")):
-                        requests.add("stop")
+                        pass
             except grpc.RpcError as e:
-                print("Error: ", e)
+                self.logger.error(f"RpcError")
         
         threading.Thread(target=handle_requests).start()
 
@@ -72,7 +70,3 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
             yield server_streamer_pb2.StreamerServerMessage(
                 chunk=server_streamer_pb2.StreamerServerChunk(chunk=chunk)
             )
-
-            if len(requests) != 0:
-                print(requests)
-                requests.clear()

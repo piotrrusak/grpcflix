@@ -95,7 +95,6 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                         self.pause = 1
                         for key in self.client_status.keys():
                             self.client_status[key] = int(message.client_pause_request.frame_id)//int(round(self.info[-1][2]))
-                        print(self.client_status)
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("pause", int(message.client_pause_request.frame_id)))
                     elif(message.HasField("client_unpause_request")):

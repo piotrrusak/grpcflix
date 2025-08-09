@@ -122,7 +122,7 @@ class Client:
                     pass
                     
         except grpc.RpcError as e:
-            self.logger.error(f"RpcError: {e.code()} - {e.details()}.")
+            self.logger.error(f"RpcError")
         finally:
             cv2.destroyAllWindows()
 
