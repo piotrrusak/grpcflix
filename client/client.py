@@ -50,19 +50,19 @@ class Client:
             while self.pause_button_status == 0 and self.unpause_button_status == 0 and self.status_request == 0:
                 time.sleep(0.1)
             if self.pause_button_status:
-                self.logger.info(f"Client sends pause request to server. {self.frame_id}")
+                self.logger.info(f"Client sends pause request to server. (self.frame_id = {self.frame_id})")
                 yield client_server_pb2.ClientServerMessage(
-                    client_pause_request=client_server_pb2.ClientPauseRequest(timestamp=str(self.frame_id))
+                    client_pause_request=client_server_pb2.ClientPauseRequest(frame_id=str(self.frame_id))
                 )
                 self.pause_button_status = 0
             elif self.unpause_button_status:
-                self.logger.info(f"Client sends unpause request to server. {self.frame_id}")
+                self.logger.info(f"Client sends unpause request to server. (self.frame_id = {self.frame_id})")
                 yield client_server_pb2.ClientServerMessage(
-                    client_unpause_request=client_server_pb2.ClientUnpauseRequest(timestamp=str(self.frame_id))
+                    client_unpause_request=client_server_pb2.ClientUnpauseRequest(frame_id=str(self.frame_id))
                 )
                 self.unpause_button_status = 0
             elif self.status_request:
-                self.logger.info("Client sends its status to server")
+                self.logger.info(f"Client sends its status to server. (self.frame_id = {self.frame_id})")
                 yield client_server_pb2.ClientServerMessage(
                     client_status_answer=client_server_pb2.ClientStatusAnswer(frame_id=str(self.frame_id))
                 )
@@ -78,7 +78,7 @@ class Client:
         )
     
     def buffer_to_queue(self, start):
-        self.logger.info(f"CLIENT RESTARTS FORM {start}")
+        self.logger.info(f"Client buffer_to_queue starts from segment no.: {start}")
         while self.info is None:
             time.sleep(0.01)
         for i in range(len(self.info)-1):
@@ -98,21 +98,21 @@ class Client:
                     self.logger.info("Client got info")
                     self.info = json.loads(message.info.info)
                 if message.HasField("chunk"):
-                    self.logger.info("Client got chunk")
+                    self.logger.debug("Client got chunk")
                     self.queue.append(message.chunk.chunk)
                 if message.HasField("server_pause_request"):
-                    self.logger.info("Client got server_pause_request")
-                    self.pause = 1
+                    self.logger.info(f"Client got server_pause_request. (self.frame_id = {message.server_pause_request.frame_id})")
+                    self.frame_id = int(message.server_pause_request.frame_id)
                     self.queue.clear()
                     self.buffer = b''
-                    self.frame_id = int(message.server_pause_request.timestamp)
+                    self.pause = 1
                 if message.HasField("server_unpause_request"):
-                    self.logger.info("Client got server_unpause_request")
-                    self.frame_id =int(message.server_unpause_request.timestamp)
+                    self.logger.info(f"fClient got server_unpause_request. (self.frame_id = {message.server_unpause_request.frame_id})")
+                    self.frame_id =int(message.server_unpause_request.frame_id)
                     self.buffer = b''
                     self.queue.clear()
                     self.pause = 0
-                    threading.Thread(target=self.buffer_to_queue, args=(int(message.server_unpause_request.timestamp)//int(round(self.info[-1][2])),)).start()
+                    threading.Thread(target=self.buffer_to_queue, args=(int(message.server_unpause_request.frame_id)//int(round(self.info[-1][2])),)).start()
                 if message.HasField("server_status_request"):
                     self.logger.info("Client got server_status_request")
                     self.status_request = 1
@@ -121,15 +121,17 @@ class Client:
                     pass
                     
         except grpc.RpcError as e:
-            print(f"RpcError: {e.code()} - {e.details()}.")
+            self.logger.error(f"RpcError: {e.code()} - {e.details()}.")
         finally:
             cv2.destroyAllWindows()
 
     def projection(self):
         pygame.init()
+
         while self.info == None:
             time.sleep(0.01)
         screen = pygame.display.set_mode((self.info[-1][0], self.info[-1][1]))
+
         pygame.display.flip()
         
         clock = pygame.time.Clock()
@@ -183,11 +185,9 @@ class Client:
                             break
                         if event.type == pygame.KEYDOWN:
                             if event.key == pygame.K_p:
-                                self.logger.info("PAUSE")
                                 self.pause_button_status = 1
                                 self.pause = 1
                             if event.key == pygame.K_u:
-                                self.logger.info("UNPAUSE")
                                 self.unpause_button_status = 1
                                 self.pause = 0
 

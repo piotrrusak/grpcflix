@@ -61,7 +61,7 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                     self.info_str = message.info.info
                     self.info = json.loads(self.info_str)
                 elif message.HasField("chunk"):
-                    self.logger.info("Server got chunk.")
+                    self.logger.debug("Server got chunk.")
                     self.queue.append(message.chunk.chunk)
         except grpc.RpcError as e:
             print(f"RpcError: {e.code()} - {e.details()}.")
@@ -79,15 +79,15 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                     elif(message.HasField("client_pause_request")):
                         self.pause = 1
                         for key in self.client_status.keys():
-                            self.client_status[key] = int(message.client_pause_request.timestamp)//int(round(self.info[-1][2]))
+                            self.client_status[key] = int(message.client_pause_request.frame_id)//int(round(self.info[-1][2]))
                         print(self.client_status)
                         for key in self.outgoing.keys():
-                            self.outgoing[key].append(("pause", int(message.client_pause_request.timestamp)))
+                            self.outgoing[key].append(("pause", int(message.client_pause_request.frame_id)))
                     elif(message.HasField("client_unpause_request")):
                         for key in self.client_status.keys():
-                            self.client_status[key] = int(message.client_unpause_request.timestamp)//int(round(self.info[-1][2]))
+                            self.client_status[key] = int(message.client_unpause_request.frame_id)//int(round(self.info[-1][2]))
                         for key in self.outgoing.keys():
-                            self.outgoing[key].append(("unpause", int(message.client_unpause_request.timestamp)))
+                            self.outgoing[key].append(("unpause", int(message.client_unpause_request.frame_id)))
                         self.pause = 0
                     elif(message.HasField("client_status_answer")):
                         for key in self.client_status.keys():
@@ -102,14 +102,12 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
 
         if len(self.client_status) == 0:
             id = 0
-
-            self.logger.info(f"First user joined.")
+            self.logger.info(f"First user joined to server.")
         else:
             id = random.randint(0, 10000)
             while id in self.client_status.keys():
                 id = random.randint(0, 10000)
-
-            self.logger.info(f"New user joined.")
+            self.logger.info(f"New user joined to server.")
         
         self.client_status[id] = 0
         self.new_user_pause = 1
@@ -127,7 +125,7 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
 
             if not self.pause and self.client_status[id] < len(self.queue) and len(self.outgoing[id]) == 0:
                 frames = self.queue[self.client_status[id]]
-                self.logger.info(f"Send segment: {self.client_status[id]}")
+                self.logger.debug(f"Server send segment: {self.client_status[id]}")
                 self.client_status[id] += 1
                 yield client_server_pb2.ServerClientMessage(
                     chunk=client_server_pb2.ServerClientChunk(chunk=frames)
@@ -139,17 +137,18 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                     server_status_request=client_server_pb2.ServerStatusRequest()
                 )
                 self.new_user_pause = 0
+                self.logger.info(f"Server send server_status_request to client with id: 0")
             
             if len(self.outgoing[id]) > 0:
                 typ, load = self.outgoing[id].popleft()
 
                 if typ == "pause":
-                    self.logger.info(f"send pause: {id}")
+                    self.logger.info(f"Server send pause request to client: {id}")
                     yield client_server_pb2.ServerClientMessage(
-                        server_pause_request = client_server_pb2.ServerPauseRequest(timestamp=str(load))
+                        server_pause_request = client_server_pb2.ServerPauseRequest(frame_id=str(load))
                     )
                 if typ == "unpause":
-                    self.logger.info(f"send unpause: {id}")
+                    self.logger.info(f"Server send unpause request to client: {id}")
                     yield client_server_pb2.ServerClientMessage(
-                        server_unpause_request = client_server_pb2.ServerUnpauseRequest(timestamp=str(load))
+                        server_unpause_request = client_server_pb2.ServerUnpauseRequest(frame_id=str(load))
                     )

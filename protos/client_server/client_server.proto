@@ -44,11 +44,11 @@ message ServerClientHeartbeat {
 }
 
 message ServerPauseRequest {
-  string timestamp = 1;
+  string frame_id = 1;
 }
 
 message ServerUnpauseRequest {
-  string timestamp = 1;
+  string frame_id = 1;
 }
 
 message ClientStartRequest {
@@ -60,11 +60,11 @@ message ClientStopRequest {
 }
 
 message ClientPauseRequest {
-  string timestamp = 1;
+  string frame_id = 1;
 }
 
 message ClientUnpauseRequest {
-  string timestamp = 1;
+  string frame_id = 1;
 }
 
 message ServerClientChunk {

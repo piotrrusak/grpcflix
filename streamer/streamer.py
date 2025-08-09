@@ -16,15 +16,20 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         self.info_str = ""
         self.info = ""
         filename = "sao1.mp4"
+        
+        self.logger.info("Streamer starts video_segmenter.segment")
         self.video_segmenter = VideoSegmenter(f"resource/{filename}", f"segment/{filename.split(".")[0]}/info.json", f"segment/{filename.split(".")[0]}", 1)
         self.video_segmenter.segment()
+        self.logger.info("Streamer ends video_segmenter.segment")
+
+        self.logger.info("Streamer starts load_data")
         self.load_data("segment/sao1")
+        self.logger.info("Streamer ends load_data")
 
     def load_data(self, input_dir_path):
         self.current_data = b''
         self.info = ""
         for filename in sorted(os.listdir(input_dir_path)):
-            print(filename)
             if filename == "info.json":
                 continue
             with open(os.path.join(input_dir_path, filename), 'rb') as f:
