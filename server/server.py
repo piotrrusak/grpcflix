@@ -55,9 +55,6 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                 )
                 self.event_flag["client_choosed_source"] = False
             time.sleep(0.01)
-        yield server_streamer_pb2.ServerStreamerMessage(
-            server_stop_request=server_streamer_pb2.ServerStopRequest()
-        )
     
     def streamer_connection(self):
         self.logger.info("streamer_connection")
@@ -74,6 +71,9 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                 elif message.HasField("chunk"):
                     self.logger.debug("Server got chunk.")
                     self.queue.append(message.chunk.chunk)
+                elif message.HasField("streamer_no_such_file_request"):
+                    self.logger.info(f"Streamer has no requested file")
+                    self.outgoing[0].append(("choose_source", ""))
         except grpc.RpcError as e:
             print(f"RpcError: {e.code()} - {e.details()}.")
 

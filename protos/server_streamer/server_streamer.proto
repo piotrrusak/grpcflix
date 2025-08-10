@@ -17,7 +17,12 @@ message StreamerServerMessage {
   oneof payload {
     StreamerServerInfo info = 1;
     StreamerServerChunk chunk = 2;
+    StreamerNoSuchFileRequest streamer_no_such_file_request = 3;
   }
+}
+
+message StreamerNoSuchFileRequest {
+  
 }
 
 message ServerSourceRequest {

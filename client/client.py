@@ -35,7 +35,7 @@ class Client:
             "server_asks_for_source": False,
             "server_asks_for_status": False
         }
-        
+
         self.status_flag = {
             "start": True,
             "pause": False,
@@ -217,5 +217,7 @@ class Client:
 
                 cap.release()
                 os.remove(tmp_path)
+        
+        time.sleep(1)
 
         pygame.quit()

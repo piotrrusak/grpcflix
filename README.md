@@ -62,7 +62,7 @@ logger.propagate = False```
 ## Short term
 
 <!-- - Safe exit for server, without blow up streamer. -->
-- In client, server and streamer, chage self.start, self.close etc. to self.flag = dict() and contain all flags in there.
+<!-- - In client, server and streamer, chage self.start, self.close etc. to self.flag = dict() and contain all flags in there. -->
 <!-- - Possibility to choose which video to watch. -->
 - Uploading own video by client to streamer.
 
