@@ -7,26 +7,11 @@ import numpy as np
 
 class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
 
-    def __init__(self, logger, source_id=0):
+    def __init__(self, logger):
         self.logger = logger
-        self.source_id = source_id
-        self.sources = dict()
-        self.pointer = -1
-        self.current_data = b''
-        self.info_str = ""
-        self.info = ""
-        # filename = input()
-
-        self.server_status = dict()
         
-        self.logger.info("Streamer starts video_segmenter.segment")
-        # self.video_segmenter = VideoSegmenter(f"resource/{filename}", f"segment/{filename.split(".")[0]}/info.json", f"segment/{filename.split(".")[0]}", 1)
-        # self.video_segmenter.segment()
-        self.logger.info("Streamer ends video_segmenter.segment")
-
-        self.logger.info("Streamer starts load_data")
-        # self.load_data("segment/sao1")
-        self.logger.info("Streamer ends load_data")
+        self.sources = dict()
+        self.server_status = dict()
 
     def load_data(self, input_dir_path):
         current_data = b''
@@ -40,9 +25,6 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         with open(os.path.join(input_dir_path, "info.json"), 'r') as f:
             info = json.load(f)
         return current_data, info_str, info
-        
-        
-        
 
     def Stream(self, request_iterator, context):
         if len(self.server_status) == 0:
@@ -55,9 +37,6 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
             self.logger.info(f"New server joined to streamer.")
         
         self.server_status[id] = [None, None, None, 0, 0]
-
-        i = 0
-        phase = 0
 
         def handle_requests():
             try:
