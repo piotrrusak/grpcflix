@@ -8,20 +8,20 @@ python3 -m grpc_tools.protoc -I./ --python_out=. --grpc_python_out=. video.proto
 
 ## scripts
 
-- **clog.sh**`<br>`deletes all .log files
-- **generpc.sh**`<br>`generates all grpc files and copies them to their destination
-- **grpclean.sh**`<br>`deletes all grpc files (apart from .proto)
-- **pyclean.sh**`<br>`deletes all __pycache__
-- **setup.sh**`<br>`sets up project
-- **setdown.sh**`<br>`sets down project
+- **clog.sh** deletes all .log files
+- **generpc.sh** generates all grpc files and copies them to their destination
+- **grpclean.sh** deletes all grpc files (apart from .proto)
+- **pyclean.sh** deletes all __pycache__
+- **setup.sh** sets up project
+- **setdown.sh** sets down project
 
 # conclusions
 
-- **Qt/cv2:**`<br>`library for GUI in linux, requires that we open window and manipulate it, in main thread of process. So in cv2 requires it as well. Best practise is to just use cv2 in main thread of process of programm. In here i just use multiprocessing instead of threading.
+- **Qt/cv2:** library for GUI in linux, requires that we open window and manipulate it, in main thread of process. So in cv2 requires it as well. Best practise is to just use cv2 in main thread of process of programm. In here i just use multiprocessing instead of threading.
 
 ---
 
-- **logging:**`<br>`library for logging in python. very useful. Quick tutorial:
+- **logging:** library for logging in python. very useful. Quick tutorial:
 
 ```
 import logging
@@ -51,12 +51,21 @@ logger.propagate = False```
 
 ---
 
-- **grpc:**`<br>`when changing .proto file, by careful about named arguments, and names of objects.
+- **grpc:** when changing .proto file, by careful about named arguments, and names of objects.
 
-- **first GIL problem**`<br>`projection with pygame oveloads GIL, because of this other threads has no possibility to run, because of this, projection blocked server_connection in client.
+- **first GIL problem** projection with pygame oveloads GIL, because of this other threads has no possibility to run, because of this, projection blocked server_connection in client.
 
-- **cv2 flags**`<br>` Used by VideoCapture.set(flag, value): https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html#gaeb8dd9c89c10a5c63c139bf7c4f5704d
+- **cv2 flags** Used by VideoCapture.set(flag, value): https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html#gaeb8dd9c89c10a5c63c139bf7c4f5704d
 
 # TODO
 
-In client, server and streamer, chage self.start, self.close etc. to self.flag = dict() and contain all flags in there.
+## Short term
+
+<!-- - Safe exit for server, without blow up streamer. -->
+- In client, server and streamer, chage self.start, self.close etc. to self.flag = dict() and contain all flags in there.
+<!-- - Possibility to choose which video to watch. -->
+- Uploading own video by client to streamer.
+
+## Long term
+
+- Audio

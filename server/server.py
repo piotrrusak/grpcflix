@@ -20,12 +20,11 @@ def connect_to_streamer(address, logger, retries=10, delay=2):
 
 class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
 
-    def __init__(self, logger, streamer_url='localhost:50002', source_id=0):
+    def __init__(self, logger, streamer_url='localhost:50002'):
         self.streamer_url = streamer_url
         self.logger = logger
         self.info_str = ""
         self.info = None
-        self.source_id = source_id
         self.queue = collections.deque()
         self.stop = 0
         self.start = 1
@@ -33,8 +32,9 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
         self.pause = 0
         self.client_status = dict()
         self.outgoing = dict()
-        time.sleep(3)
         self.new_user_pause = 0
+        self.source = None
+        self.client_choosed_source = False
         threading.Thread(target=self.streamer_connection).start()
         
     
@@ -43,6 +43,12 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
             server_start_request=server_streamer_pb2.ServerStartRequest()
         )
         while not self.stop:
+            if self.client_choosed_source == True:
+                self.logger.info(f"Server sends server_source_request to streamer.")
+                yield server_streamer_pb2.ServerStreamerMessage(
+                    server_source_request = server_streamer_pb2.ServerSourceRequest(source=self.source)
+                )
+                self.client_choosed_source = False
             time.sleep(0.01)
         yield server_streamer_pb2.ServerStreamerMessage(
             server_stop_request=server_streamer_pb2.ServerStopRequest()
@@ -69,8 +75,9 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
     def Stream(self, request_iterator, context):
 
         running = True
+        send_info_to_client = False
 
-        if len(self.client_status) == 0:
+        if 0 not in self.client_status.keys():
             id = 0
             self.logger.info(f"First user joined to server.")
         else:
@@ -79,16 +86,31 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                 id = random.randint(0, 10000)
             self.logger.info(f"New user joined to server.")
         
+        self.client_status[id] = 0
+        self.new_user_pause = 1
+        self.pause = 1
+
+        self.outgoing[id] = collections.deque()
+
         def handle_requests():
             self.logger.info("handle_requests")
             try:
                 for message in request_iterator:
                     if(message.HasField("client_start_request")):
                         self.logger.info("Server got start request from client.")
+
+                        if id == 0:
+                            self.outgoing[id].append(("choose_source", ""))
                     elif(message.HasField("client_stop_request")):
                         self.logger.info(f"Server got stop request from client with id: {id}.")
                         del self.queue[id]
                         del self.client_status[id]
+                        self.info_str = ""
+                        
+                        if len(self.client_status) == 0:
+                            self.queue.clear()
+                            self.client_choosed_source = False
+
                         running = False
                         return
                     elif(message.HasField("client_pause_request")):
@@ -108,29 +130,35 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                             self.client_status[key] = int(message.client_status_answer.frame_id)//int(round(self.info[-1][2]))
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("pause", int(int(message.client_status_answer.frame_id))))
+                    elif(message.HasField("client_choose_source_answer")):
+                        self.logger.info(f"Server got client_choose_source_answer: {message.client_choose_source_answer.source}")
+                        self.source = message.client_choose_source_answer.source
+                        self.client_choosed_source = True
                         
             except grpc.RpcError as e:
-                self.logger.error(f"RpcError")
+                self.logger.error(f"RpcError (probably disconnected)")
 
         threading.Thread(target=handle_requests).start()
-        
-        self.client_status[id] = 0
-        self.new_user_pause = 1
-        
-        self.outgoing[id] = collections.deque()
 
-        yield client_server_pb2.ServerClientMessage(
-            info=client_server_pb2.ServerClientInfo(info=self.info_str)
-        )
+        # yield client_server_pb2.ServerClientMessage(
+        #     info=client_server_pb2.ServerClientInfo(info=self.info_str)
+        # )
 
         while context.is_active():
-            
+
             if not running:
                 return
-
+            
+            # self.logger.debug(f"Server sends heartbeat to client: {id}")
             yield client_server_pb2.ServerClientMessage(
                 heartbeat=client_server_pb2.ServerClientHeartbeat()
             )
+
+            if not send_info_to_client and self.info_str != "":
+                yield client_server_pb2.ServerClientMessage(
+                    info=client_server_pb2.ServerClientInfo(info=self.info_str)
+                )
+                send_info_to_client = True
 
             if not self.pause and self.client_status[id] < len(self.queue) and len(self.outgoing[id]) == 0:
                 frames = self.queue[self.client_status[id]]
@@ -141,7 +169,7 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                 )
             
             
-            if id == 0 and self.new_user_pause:
+            if id == 0 and self.new_user_pause and send_info_to_client:
                 yield client_server_pb2.ServerClientMessage(
                     server_status_request=client_server_pb2.ServerStatusRequest()
                 )
@@ -151,6 +179,11 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
             if len(self.outgoing[id]) > 0:
                 typ, load = self.outgoing[id].popleft()
 
+                if typ == "choose_source":
+                    self.logger.info(f"Server send server_choose_source_request to client: {id}")
+                    yield client_server_pb2.ServerClientMessage(
+                        server_choose_source_request = client_server_pb2.ServerChooseSourceRequest()
+                    )
                 if typ == "pause":
                     self.logger.info(f"Server send pause request to client: {id}")
                     yield client_server_pb2.ServerClientMessage(

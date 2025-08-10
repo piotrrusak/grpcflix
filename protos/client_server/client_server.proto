@@ -13,6 +13,7 @@ message ClientServerMessage {
     ClientUnpauseRequest client_unpause_request = 4;
     ClientServerHeartbeat heartbeat = 5;
     ClientStatusAnswer client_status_answer = 6;
+    ClientChooseSourceAnswer client_choose_source_answer = 7;
   }
 }
 
@@ -24,7 +25,16 @@ message ServerClientMessage {
     ServerUnpauseRequest server_unpause_request = 4;
     ServerClientHeartbeat heartbeat = 5;
     ServerStatusRequest server_status_request = 6;
+    ServerChooseSourceRequest server_choose_source_request = 7;
   }
+}
+
+message ServerChooseSourceRequest {
+
+}
+
+message ClientChooseSourceAnswer {
+  string source = 1;
 }
 
 message ServerStatusRequest {

@@ -35,9 +35,10 @@ class Client:
         self.pause_button_status = 0
         self.unpause_button_status = 0
         
-        self.status_request = 0
+        self.server_asks_for_status = 0
 
         self.stop = 0
+        self.server_asks_for_source = False
 
     def generator(self):
 
@@ -47,7 +48,12 @@ class Client:
             )
 
         while not self.stop:
-            while self.pause_button_status == 0 and self.unpause_button_status == 0 and self.status_request == 0:
+            while self.pause_button_status == 0 and self.unpause_button_status == 0 and self.server_asks_for_status == 0 and self.server_asks_for_source == False:
+                if self.stop:
+                    self.logger.info("Client sends client_stop_request.")
+                    yield client_server_pb2.ClientServerMessage(
+                        client_stop_request=client_server_pb2.ClientStopRequest()
+                    )
                 time.sleep(0.1)
             if self.pause_button_status:
                 self.logger.info(f"Client sends pause request to server. (self.frame_id = {self.frame_id})")
@@ -55,28 +61,31 @@ class Client:
                     client_pause_request=client_server_pb2.ClientPauseRequest(frame_id=str(self.frame_id))
                 )
                 self.pause_button_status = 0
+            elif self.server_asks_for_source:
+                self.logger.info("Enter name of file:")
+                source = str(input())
+                self.logger.info("Client sent choose_source_answer. (so)")
+                yield client_server_pb2.ClientServerMessage(
+                    client_choose_source_answer = client_server_pb2.ClientChooseSourceAnswer(source=source)
+                )
+                self.server_asks_for_source = False
             elif self.unpause_button_status:
                 self.logger.info(f"Client sends unpause request to server. (self.frame_id = {self.frame_id})")
                 yield client_server_pb2.ClientServerMessage(
                     client_unpause_request=client_server_pb2.ClientUnpauseRequest(frame_id=str(self.frame_id))
                 )
                 self.unpause_button_status = 0
-            elif self.status_request:
+            elif self.server_asks_for_status:
                 self.logger.info(f"Client sends its status to server. (self.frame_id = {self.frame_id})")
                 yield client_server_pb2.ClientServerMessage(
                     client_status_answer=client_server_pb2.ClientStatusAnswer(frame_id=str(self.frame_id))
                 )
-                self.status_request = 0
+                self.server_asks_for_status = 0
             else:
                 self.logger.info("Client sends heartbeat to server")
                 yield client_server_pb2.ClientServerMessage(
                     heartbeat=client_server_pb2.Heartbeat()
                 )
-        
-        self.logger.info("Client sends client_stop_request.")
-        yield client_server_pb2.ClientServerMessage(
-            client_stop_request=client_server_pb2.ClientStopRequest()
-        )
     
     def buffer_to_queue(self, start):
         self.logger.info(f"Client buffer_to_queue starts from segment no.: {start}")
@@ -84,6 +93,7 @@ class Client:
             time.sleep(0.01)
         for i in range(len(self.info)-1):
             if i >= start:
+                self.logger.debug(f"Client process chunk: {i}. (len(self.buffer), len(self.queue)) = ({len(self.buffer)}, {len(self.queue)})")
                 while len(self.buffer) < self.info[i]:
                     time.sleep(0.01)
                 self.queue.append(self.buffer[:self.info[i]])
@@ -98,6 +108,9 @@ class Client:
                 if message.HasField("info"):
                     self.logger.info("Client got info")
                     self.info = json.loads(message.info.info)
+                if message.HasField("server_choose_source_request"):
+                    self.server_asks_for_source = True
+                    self.logger.info("Client got server_choose_source_request")
                 if message.HasField("chunk"):
                     self.logger.debug("Client got chunk")
                     self.queue.append(message.chunk.chunk)
@@ -116,7 +129,7 @@ class Client:
                     threading.Thread(target=self.buffer_to_queue, args=(int(message.server_unpause_request.frame_id)//int(round(self.info[-1][2])),)).start()
                 if message.HasField("server_status_request"):
                     self.logger.info("Client got server_status_request")
-                    self.status_request = 1
+                    self.server_asks_for_status = 1
                 if message.HasField("heartbeat"):
                     # self.logger.info("heartbeat")
                     pass
@@ -145,11 +158,9 @@ class Client:
                     running = False
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_p:
-                        self.logger.info("PAUSE")
                         self.pause_button_status = 1
                         self.pause = 1
                     if event.key == pygame.K_u:
-                        self.logger.info("UNPAUSE")
                         self.unpause_button_status = 1
                         self.pause = 0
                     if event.key == pygame.K_q:
@@ -157,6 +168,7 @@ class Client:
                         running = False
 
             if not self.pause and len(self.queue) > 0:
+
                 video_bytes = self.queue.popleft()
 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:

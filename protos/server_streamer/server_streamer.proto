@@ -9,6 +9,7 @@ message ServerStreamerMessage {
   oneof payload {
     ServerStartRequest server_start_request = 1;
     ServerStopRequest server_stop_request = 2;
+    ServerSourceRequest server_source_request = 3;
   }
 }
 
@@ -17,6 +18,10 @@ message StreamerServerMessage {
     StreamerServerInfo info = 1;
     StreamerServerChunk chunk = 2;
   }
+}
+
+message ServerSourceRequest {
+  string source = 1;
 }
 
 message ServerStartRequest {
