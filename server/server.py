@@ -18,7 +18,7 @@ def connect_to_streamer(address, logger, retries=10, delay=2):
             time.sleep(delay)
     raise ConnectionError(f"Failed to connect to streamer at {address} after {retries} attempts.")
 
-class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
+class Server(client_server_pb2_grpc.ClientServerServiceServicer):
 
     def __init__(self, logger, streamer_url='localhost:50002'):
         self.logger = logger
@@ -27,7 +27,8 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
         self.info_str = ""
         self.info = None
         self.queue = collections.deque()
-        self.client_status = dict()
+        
+        self.server_servicer = dict()
         self.outgoing = dict()
         self.source = None
 
@@ -84,16 +85,16 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
             "already_sent_info_to_client": False,
         }
 
-        if 0 not in self.client_status.keys():
+        if 0 not in self.server_servicer.keys():
             id = 0
             self.logger.info(f"First user joined to server.")
         else:
             id = random.randint(0, 10000)
-            while id in self.client_status.keys():
+            while id in self.server_servicer.keys():
                 id = random.randint(0, 10000)
             self.logger.info(f"New user joined to server.")
         
-        self.client_status[id] = 0
+        self.server_servicer[id] = 0
         self.event_flag["server_have_to_ask_initial_client_for_status"] = True
         self.status_flag["pause"] = True
 
@@ -111,10 +112,10 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                     elif(message.HasField("client_stop_request")):
                         self.logger.info(f"Server got stop request from client with id: {id}.")
                         del self.queue[id]
-                        del self.client_status[id]
+                        del self.server_servicer[id]
                         self.info_str = ""
                         
-                        if len(self.client_status) == 0:
+                        if len(self.server_servicer) == 0:
                             self.queue.clear()
                             self.event_flag["client_choosed_source"] = False
 
@@ -122,19 +123,19 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                         return
                     elif(message.HasField("client_pause_request")):
                         self.status_flag["pause"] = True
-                        for key in self.client_status.keys():
-                            self.client_status[key] = int(message.client_pause_request.frame_id)//int(round(self.info[-1][2]))
+                        for key in self.server_servicer.keys():
+                            self.server_servicer[key] = int(message.client_pause_request.frame_id)//int(round(self.info[-1][2]))
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("pause", int(message.client_pause_request.frame_id)))
                     elif(message.HasField("client_unpause_request")):
-                        for key in self.client_status.keys():
-                            self.client_status[key] = int(message.client_unpause_request.frame_id)//int(round(self.info[-1][2]))
+                        for key in self.server_servicer.keys():
+                            self.server_servicer[key] = int(message.client_unpause_request.frame_id)//int(round(self.info[-1][2]))
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("unpause", int(message.client_unpause_request.frame_id)))
                         self.status_flag["pause"] = False
                     elif(message.HasField("client_status_answer")):
-                        for key in self.client_status.keys():
-                            self.client_status[key] = int(message.client_status_answer.frame_id)//int(round(self.info[-1][2]))
+                        for key in self.server_servicer.keys():
+                            self.server_servicer[key] = int(message.client_status_answer.frame_id)//int(round(self.info[-1][2]))
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("pause", int(int(message.client_status_answer.frame_id))))
                     elif(message.HasField("client_choose_source_answer")):
@@ -144,6 +145,16 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                         
             except grpc.RpcError as e:
                 self.logger.error(f"RpcError (probably disconnected)")
+                del self.queue[id]
+                del self.server_servicer[id]
+                self.info_str = ""
+                
+                if len(self.server_servicer) == 0:
+                    self.queue.clear()
+                    self.event_flag["client_choosed_source"] = False
+
+                local_flag["running"] = False
+                return
 
         threading.Thread(target=handle_requests).start()
 
@@ -163,10 +174,10 @@ class Servicer(client_server_pb2_grpc.ClientServerServiceServicer):
                 )
                 local_flag["already_sent_info_to_client"] = True
 
-            if not self.status_flag["pause"] and self.client_status[id] < len(self.queue) and len(self.outgoing[id]) == 0:
-                frames = self.queue[self.client_status[id]]
-                self.logger.debug(f"Server send segment: {self.client_status[id]}")
-                self.client_status[id] += 1
+            if not self.status_flag["pause"] and self.server_servicer[id] < len(self.queue) and len(self.outgoing[id]) == 0:
+                frames = self.queue[self.server_servicer[id]]
+                self.logger.debug(f"Server send segment: {self.server_servicer[id]}")
+                self.server_servicer[id] += 1
                 yield client_server_pb2.ServerClientMessage(
                     chunk=client_server_pb2.ServerClientChunk(chunk=frames)
                 )

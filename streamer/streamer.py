@@ -11,14 +11,13 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         self.logger = logger
         
         self.sources = dict()
-        self.server_status = dict()
+        
+        self.streamer_servicer_status = dict()
+        self.streamer_servicer_data = dict()
         self.outgoing = dict()
 
-        self.event_flag = {
-            "no_such_file": False
-        }
-
     def load_data(self, input_dir_path):
+        self.logger.info("Streamer starts load_data.")
         current_data = b''
         for filename in sorted(os.listdir(input_dir_path)):
             if filename == "info.json":
@@ -32,16 +31,17 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         return current_data, info_str, info
 
     def Stream(self, request_iterator, context):
-        if len(self.server_status) == 0:
+        if len(self.streamer_servicer_status) == 0:
             id = 0
             self.logger.info(f"First server joined to streamer.")
         else:
             id = random.randint(0, 10000)
-            while id in self.server_status.keys():
+            while id in self.streamer_servicer_status.keys():
                 id = random.randint(0, 10000)
             self.logger.info(f"New server joined to streamer.")
         
-        self.server_status[id] = [None, None, None, 0, 0]
+        self.streamer_servicer_status[id] = "initialised"
+        self.streamer_servicer_data[id] = [None, None, None, 0, 0]
         self.outgoing[id] = collections.deque()
 
         def handle_requests():
@@ -52,14 +52,14 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
                     elif(message.HasField("server_stop_request")):
                         pass
                     elif(message.HasField("server_source_request")):
+                        self.streamer_servicer_status[id] = "initialised"
                         if not os.path.exists(f"resource/{message.server_source_request.source}"):
                             self.logger.warning(f"No such source as: {message.server_source_request.source}")
-                            self.event_flag["no_such_file"] = True
                             self.outgoing[id].append(("no_such_file", ""))
                             continue
                         if not os.path.exists(f"segment/{message.server_source_request.source.split(".")[0]}/info.json"):
                             VideoSegmenter(f"resource/{message.server_source_request.source}", f"segment/{message.server_source_request.source.split(".")[0]}/info.json", f"segment/{message.server_source_request.source.split(".")[0]}", 1).segment()
-                        self.server_status[id][0], self.server_status[id][1], self.server_status[id][2]  = self.load_data("segment/" + message.server_source_request.source.split(".")[0])
+                        self.streamer_servicer_data[id][0], self.streamer_servicer_data[id][1], self.streamer_servicer_data[id][2]  = self.load_data("segment/" + message.server_source_request.source.split(".")[0])
             except grpc.RpcError as e:
                 self.logger.error(f"RpcError")
         
@@ -69,12 +69,30 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
 
         while context.is_active():
 
-            while (self.server_status[id][0] == None or self.server_status[id][1] == None or self.server_status[id][2] == None) and not self.event_flag["no_such_file"]:
-                time.sleep(0.01)
-            
-            self.logger.info(self.event_flag["no_such_file"])
+            if self.streamer_servicer_status[id] == "initialised" and not self.streamer_servicer_data[id][1] == None and not self.streamer_servicer_data[id][2] == None:
+                yield server_streamer_pb2.StreamerServerMessage(
+                    info=server_streamer_pb2.StreamerServerInfo(info=self.streamer_servicer_data[id][1])
+                )
+                self.streamer_servicer_status[id] = "sent_info"
 
-            if self.event_flag["no_such_file"]:
+            if self.streamer_servicer_status[id] == "sent_info" and not self.streamer_servicer_data[id][0] == None:
+                while self.streamer_servicer_data[id][4] < len(self.streamer_servicer_data[id][0]):
+                    chunk = self.streamer_servicer_data[id][0][self.streamer_servicer_data[id][4]:(self.streamer_servicer_data[id][4]+self.streamer_servicer_data[id][2][self.streamer_servicer_data[id][3]])]
+                    self.streamer_servicer_data[id][4] += self.streamer_servicer_data[id][2][self.streamer_servicer_data[id][3]]
+                    self.streamer_servicer_data[id][3] += 1
+                    
+                    if len(chunk) == 0:
+                        break
+                    self.logger.debug(str(f"Send segment no.: {self.streamer_servicer_data[id][3]} to server."))
+                    yield server_streamer_pb2.StreamerServerMessage(
+                        chunk=server_streamer_pb2.StreamerServerChunk(chunk=chunk)
+                    )
+                
+                self.streamer_servicer_data[id] = [None, None, None, 0, 0]
+                self.streamer_servicer_status[id] = "sent_data"
+                self.logger.info("Streamer finished data transfer to server.")
+
+            if len(self.outgoing[id]) != 0:
                 self.logger.info(f"Streamer sends no_such_file to")
                 while len(self.outgoing[id]) > 0:
                     typ, load = self.outgoing[id].popleft()
@@ -83,24 +101,4 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
                         yield server_streamer_pb2.StreamerServerMessage(
                             streamer_no_such_file_request = server_streamer_pb2.StreamerNoSuchFileRequest()
                         )
-                self.event_flag["no_such_file"] = False
                 continue
-
-            yield server_streamer_pb2.StreamerServerMessage(
-                info=server_streamer_pb2.StreamerServerInfo(info=self.server_status[id][1])
-            )
-
-            while self.server_status[id][4] < len(self.server_status[id][0]):
-                chunk = self.server_status[id][0][self.server_status[id][4]:(self.server_status[id][4]+self.server_status[id][2][self.server_status[id][3]])]
-                self.server_status[id][4] += self.server_status[id][2][self.server_status[id][3]]
-                self.server_status[id][3] += 1
-                
-                if len(chunk) == 0:
-                    break
-                self.logger.info(str(f"Send video chunk ({self.server_status[id][3]}) to server, timestamp: " + str(time.time())))
-                yield server_streamer_pb2.StreamerServerMessage(
-                    chunk=server_streamer_pb2.StreamerServerChunk(chunk=chunk)
-                )
-            
-            self.server_status[id] = [None, None, None, 0, 0]
-

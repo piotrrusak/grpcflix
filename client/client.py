@@ -66,7 +66,7 @@ class Client:
             elif self.event_flag["server_asks_for_source"]:
                 self.logger.info("Enter name of file:")
                 source = str(input())
-                self.logger.info("Client sent choose_source_answer. (so)")
+                self.logger.info(f"Client sent choose_source_answer. (source = {source})")
                 yield client_server_pb2.ClientServerMessage(
                     client_choose_source_answer = client_server_pb2.ClientChooseSourceAnswer(source=source)
                 )
@@ -146,7 +146,7 @@ class Client:
 
         while self.info == None:
             time.sleep(0.01)
-        screen = pygame.display.set_mode((self.info[-1][0], self.info[-1][1]))
+        screen = pygame.display.set_mode((self.info[-1][0], self.info[-1][1]), pygame.RESIZABLE)
 
         pygame.display.flip()
         
@@ -165,7 +165,7 @@ class Client:
                     if event.key == pygame.K_u:
                         self.event_flag["unpause_button_status"] = True
                         self.status_flag["pause"] = False
-                    if event.key == pygame.K_q:
+                    if event.key == pygame.K_q or event.key == pygame.QUIT:
                         self.status_flag["stop"] = True
                         running = False
 
@@ -189,6 +189,8 @@ class Client:
                     ret, frame = cap.read()
                     if not ret:
                         break
+                    width, height = screen.get_size()
+                    frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
 
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     frame = np.transpose(frame, (1, 0, 2))
@@ -208,7 +210,8 @@ class Client:
                             if event.key == pygame.K_u:
                                 self.event_flag["unpause_button_status"] = True
                                 self.status_flag["pause"] = False
-                            if event.key == pygame.K_q:
+                            if event.key == pygame.K_q or event.key == pygame.QUIT:
+                                self.event_flag["pause_button_status"] = True
                                 self.status_flag["stop"] = True
                                 running = False
 

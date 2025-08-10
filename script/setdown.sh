@@ -1,9 +1,10 @@
 rm -rf client/.venv
 rm -rf server/.venv
 rm -rf streamer/.venv
-rm -rf streamer/resource
+find streamer/resource -mindepth 1 ! -name 'sample.mp4' -exec rm -rf {} +
 rm -rf streamer/segment
 rm -rf protos/.venv
+rm -rf .vscode/
 ./script/pyclean.sh
 ./script/grpclean.sh
 ./script/clog.sh

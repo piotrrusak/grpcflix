@@ -1,6 +1,6 @@
 import grpc, client_server_pb2_grpc
 
-from server import Servicer
+from server import Server
 
 import logging, sys, concurrent
 
@@ -27,7 +27,7 @@ logger.propagate = False
  
 def serve():
     server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
-    client_server_pb2_grpc.add_ClientServerServiceServicer_to_server(Servicer(logger), server)
+    client_server_pb2_grpc.add_ClientServerServiceServicer_to_server(Server(logger), server)
     server.add_insecure_port('0.0.0.0:50001')
     server.start()
     server.wait_for_termination()
