@@ -28,6 +28,7 @@ class Client:
         
         self.info = None
         self.frame_id = 0
+        self.source = None
 
         self.event_flag = {
             "pause_button_status": False,
@@ -64,11 +65,9 @@ class Client:
                 )
                 self.event_flag["pause_button_status"] = False
             elif self.event_flag["server_asks_for_source"]:
-                self.logger.info("Enter name of file:")
-                source = str(input())
-                self.logger.info(f"Client sent choose_source_answer. (source = {source})")
+                self.logger.info(f"Client sent choose_source_answer. (source = {str(self.source)})")
                 yield client_server_pb2.ClientServerMessage(
-                    client_choose_source_answer = client_server_pb2.ClientChooseSourceAnswer(source=source)
+                    client_choose_source_answer = client_server_pb2.ClientChooseSourceAnswer(source=str(self.source))
                 )
                 self.event_flag["server_asks_for_source"] = False
             elif self.event_flag["unpause_button_status"]:
@@ -144,9 +143,9 @@ class Client:
     def projection(self):
         pygame.init()
 
-        while self.info == None:
-            time.sleep(0.01)
-        screen = pygame.display.set_mode((self.info[-1][0], self.info[-1][1]), pygame.RESIZABLE)
+        # while self.info == None:
+        #     time.sleep(0.01)
+        screen = pygame.display.set_mode((1080, 1080), pygame.RESIZABLE)
 
         pygame.display.flip()
         
@@ -168,6 +167,10 @@ class Client:
                     if event.key == pygame.K_q or event.key == pygame.QUIT:
                         self.status_flag["stop"] = True
                         running = False
+                    if event.key == pygame.K_s:
+                        print(f"Please type in name of file you want to watch: (base: sample.mp4)")
+                        self.source = input()
+                        self.event_flag["server_asks_for_source"] = True
 
             if not self.status_flag["pause"] and len(self.queue) > 0:
 
@@ -189,10 +192,24 @@ class Client:
                     ret, frame = cap.read()
                     if not ret:
                         break
-                    width, height = screen.get_size()
-                    frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
 
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    window_width, window_height = screen.get_size()
+                    source_width, source_height = self.info[-1][0], self.info[-1][1]
+                    scale = min(window_width / source_width, window_height / source_height)
+                    new_width, new_height = int(source_width * scale), int(source_height * scale)
+
+                    frame = cv2.resize(frame, (int(source_width * scale), int(source_height * scale)), interpolation=cv2.INTER_AREA)
+
+                    result = np.zeros((window_height, window_width, 3), dtype=np.uint8)
+
+                    # Oblicz przesunięcie aby wyśrodkować obraz
+                    x_offset = (window_width - new_width) // 2
+                    y_offset = (window_height - new_height) // 2
+
+                    # Wstaw przeskalowany obraz na tło
+                    result[y_offset:y_offset+new_height, x_offset:x_offset+new_width] = frame
+
+                    frame = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
                     frame = np.transpose(frame, (1, 0, 2))
                     surface = pygame.surfarray.make_surface(frame)
                     screen.blit(surface, (0, 0))

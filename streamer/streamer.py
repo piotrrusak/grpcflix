@@ -17,7 +17,7 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         self.outgoing = dict()
 
     def load_data(self, input_dir_path):
-        self.logger.info("Streamer starts load_data.")
+        self.logger.info(f"Streamer starts load_data: {input_dir_path}")
         current_data = b''
         for filename in sorted(os.listdir(input_dir_path)):
             if filename == "info.json":

@@ -50,11 +50,20 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
         )
         while True:
             if self.event_flag["client_choosed_source"]:
+                self.info_str = ""
+                self.info = None
+                self.queue = collections.deque()
                 self.logger.info(f"Server sends server_source_request to streamer.")
                 yield server_streamer_pb2.ServerStreamerMessage(
                     server_source_request = server_streamer_pb2.ServerSourceRequest(source=self.source)
                 )
+                for key in self.server_servicer.keys():
+                    self.server_servicer[key] = 0
+                for key in self.outgoing.keys():
+                    self.outgoing[key].append(("info_resend", ""))
                 self.event_flag["client_choosed_source"] = False
+                for key in self.outgoing.keys():
+                    self.outgoing[key].append(("pause", 0))
             time.sleep(0.01)
     
     def streamer_connection(self):
@@ -105,13 +114,9 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
             try:
                 for message in request_iterator:
                     if(message.HasField("client_start_request")):
-                        self.logger.info("Server got start request from client.")
-
-                        if id == 0:
-                            self.outgoing[id].append(("choose_source", ""))
+                        self.logger.info(f"Server got start request from client: {id}.")
                     elif(message.HasField("client_stop_request")):
                         self.logger.info(f"Server got stop request from client with id: {id}.")
-                        del self.queue[id]
                         del self.server_servicer[id]
                         self.info_str = ""
                         
@@ -193,11 +198,6 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
             if len(self.outgoing[id]) > 0:
                 typ, load = self.outgoing[id].popleft()
 
-                if typ == "choose_source":
-                    self.logger.info(f"Server send server_choose_source_request to client: {id}")
-                    yield client_server_pb2.ServerClientMessage(
-                        server_choose_source_request = client_server_pb2.ServerChooseSourceRequest()
-                    )
                 if typ == "pause":
                     self.logger.info(f"Server send pause request to client: {id}")
                     yield client_server_pb2.ServerClientMessage(
@@ -208,3 +208,11 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
                     yield client_server_pb2.ServerClientMessage(
                         server_unpause_request = client_server_pb2.ServerUnpauseRequest(frame_id=str(load))
                     )
+                if typ == "info_resend":
+                    if self.info_str != "":
+                        self.logger.info(f"Server resends info to client: {id}")
+                        yield client_server_pb2.ServerClientMessage(
+                            info=client_server_pb2.ServerClientInfo(info=self.info_str)
+                        )
+                    else:
+                        self.outgoing[id].append(("info_resend", ""))
