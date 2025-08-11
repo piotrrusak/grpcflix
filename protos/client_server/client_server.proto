@@ -41,7 +41,7 @@ message ClientUploadChunk {
 }
 
 message ClientUploadEnd {
-
+  string filename = 1;
 }
 
 message ServerChooseSourceRequest {

@@ -28,14 +28,15 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
         self.info = None
         self.queue = collections.deque()
         
-        self.server_servicer = dict()
+        self.server_servicer_status = dict()
         self.outgoing = dict()
         self.source = None
         self.upload_queue = collections.deque()
+        self.upload_filename = None
 
         self.event_flag = {
             "server_have_to_ask_initial_client_for_status": False,
-            "client_choosed_source": False,
+            "client_wants_source": False,
             "client_finished_upload": False
         }
         
@@ -48,11 +49,14 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
         
     
     def generator(self):
+        
         yield server_streamer_pb2.ServerStreamerMessage(
             server_start_request=server_streamer_pb2.ServerStartRequest()
         )
+
         while True:
-            if self.event_flag["client_choosed_source"]:
+            
+            if self.event_flag["client_wants_source"]:
                 self.info_str = ""
                 self.info = None
                 self.queue = collections.deque()
@@ -60,13 +64,14 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
                 yield server_streamer_pb2.ServerStreamerMessage(
                     server_source_request = server_streamer_pb2.ServerSourceRequest(source=self.source)
                 )
-                for key in self.server_servicer.keys():
-                    self.server_servicer[key] = 0
+                for key in self.server_servicer_status.keys():
+                    self.server_servicer_status[key]["segment_id"] = 0
                 for key in self.outgoing.keys():
                     self.outgoing[key].append(("info_resend", ""))
-                self.event_flag["client_choosed_source"] = False
+                self.event_flag["client_wants_source"] = False
                 for key in self.outgoing.keys():
                     self.outgoing[key].append(("pause", 0))
+            
             if self.event_flag["client_finished_upload"]:
                 self.logger.info("Server start uploading to streamer.")
                 yield server_streamer_pb2.ServerStreamerMessage(
@@ -77,10 +82,11 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
                         server_upload_chunk = server_streamer_pb2.ServerUploadChunk(chunk = self.upload_queue.popleft())
                     )
                 yield server_streamer_pb2.ServerStreamerMessage(
-                    server_upload_end = server_streamer_pb2.ServerUploadEnd()
+                    server_upload_end = server_streamer_pb2.ServerUploadEnd(filename = self.upload_filename)
                 )
                 self.logger.info("Server end uploading to streamer.")
                 self.event_flag["client_finished_upload"] = False
+            
             time.sleep(0.01)
     
     def streamer_connection(self):
@@ -91,136 +97,148 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
         response_stream = stub.Stream(self.generator())
         try:
             for message in response_stream:
+                
                 if message.HasField("info"):
                     self.logger.info("Server got info.")
                     self.info_str = message.info.info
                     self.info = json.loads(self.info_str)
+                
                 elif message.HasField("chunk"):
                     self.logger.debug("Server got chunk.")
                     self.queue.append(message.chunk.chunk)
+                
                 elif message.HasField("streamer_no_such_file_request"):
                     self.logger.info(f"Streamer has no requested file")
-                    self.outgoing[0].append(("choose_source", ""))
+                    # self.outgoing[0].append(("choose_source", ""))
+                
+                elif message.HasField("heartbeat"):
+                    # self.logger.debug("Server got heartbeat from streamer")
+                    pass
+                
         except grpc.RpcError as e:
-            print(f"RpcError: {e.code()} - {e.details()}.")
+            self.logger.error(f"RpcError.")
 
     def Stream(self, request_iterator, context):
 
-        local_flag = {
-            "running": True,
-            "already_sent_info_to_client": False,
-        }
-
-        if 0 not in self.server_servicer.keys():
+        if 0 not in self.server_servicer_status.keys():
             id = 0
             self.logger.info(f"First user joined to server.")
         else:
             id = random.randint(0, 10000)
-            while id in self.server_servicer.keys():
+            while id in self.server_servicer_status.keys():
                 id = random.randint(0, 10000)
             self.logger.info(f"New user joined to server.")
         
-        self.server_servicer[id] = 0
+        self.server_servicer_status[id] = {
+            "status": "initialised", # initialised | info
+            "segment_id": 0
+        }
         self.event_flag["server_have_to_ask_initial_client_for_status"] = True
         self.status_flag["pause"] = True
 
         self.outgoing[id] = collections.deque()
+        self.outgoing[id].append(("info_resend", ""))
 
         def handle_requests():
-            self.logger.info("handle_requests")
+            self.logger.info("Server: Thread handle_requests starts")
             try:
                 for message in request_iterator:
+
                     if(message.HasField("client_start_request")):
                         self.logger.info(f"Server got start request from client: {id}.")
+                    
                     elif(message.HasField("client_stop_request")):
                         self.logger.info(f"Server got stop request from client with id: {id}.")
-                        del self.server_servicer[id]
+                        del self.server_servicer_status[id]
                         self.info_str = ""
                         
-                        if len(self.server_servicer) == 0:
+                        if len(self.server_servicer_status) == 0:
                             self.queue.clear()
-                            self.event_flag["client_choosed_source"] = False
-
-                        local_flag["running"] = False
+                            self.event_flag["client_wants_source"] = False
+                        
                         return
+
                     elif(message.HasField("client_pause_request")):
                         self.status_flag["pause"] = True
-                        for key in self.server_servicer.keys():
-                            self.server_servicer[key] = int(message.client_pause_request.frame_id)//int(round(self.info[-1][2]))
+                        for key in self.server_servicer_status.keys():
+                            self.server_servicer_status[key]["segment_id"] = int(message.client_pause_request.frame_id)//int(round(self.info[-1][2]))
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("pause", int(message.client_pause_request.frame_id)))
+                    
                     elif(message.HasField("client_unpause_request")):
-                        for key in self.server_servicer.keys():
-                            self.server_servicer[key] = int(message.client_unpause_request.frame_id)//int(round(self.info[-1][2]))
+                        for key in self.server_servicer_status.keys():
+                            self.server_servicer_status[key]["segment_id"] = int(message.client_unpause_request.frame_id)//int(round(self.info[-1][2]))
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("unpause", int(message.client_unpause_request.frame_id)))
                         self.status_flag["pause"] = False
+                    
                     elif(message.HasField("client_status_answer")):
-                        for key in self.server_servicer.keys():
-                            self.server_servicer[key] = int(message.client_status_answer.frame_id)//int(round(self.info[-1][2]))
+                        for key in self.server_servicer_status.keys():
+                            self.server_servicer_status[key]["segment_id"] = int(message.client_status_answer.frame_id)//int(round(self.info[-1][2]))
                         for key in self.outgoing.keys():
                             self.outgoing[key].append(("pause", int(int(message.client_status_answer.frame_id))))
+                    
                     elif(message.HasField("client_choose_source_answer")):
                         self.logger.info(f"Server got client_choose_source_answer: {message.client_choose_source_answer.source}")
                         self.source = message.client_choose_source_answer.source
-                        self.event_flag["client_choosed_source"] = True
+                        self.event_flag["client_wants_source"] = True
+                    
+                    # UPLOAD START
+                    
                     elif(message.HasField("client_upload_start")):
                         self.logger.info(f"Server got client_upload_start.")
                         self.status_flag["upload_in_progress"] = True
+                    
                     elif(message.HasField("client_upload_chunk")):
                         self.logger.debug(f"Server got client_upload_chunk.")
                         self.upload_queue.append(message.client_upload_chunk.chunk)
+                    
                     elif(message.HasField("client_upload_end")):
                         self.logger.info(f"Server got client_upload_end.")
+                        self.upload_filename = message.client_upload_end.filename
                         self.status_flag["upload_in_progress"] = False
                         self.event_flag["client_finished_upload"] = True
+                    
+                    # UPLOAD END
                         
             except grpc.RpcError as e:
                 self.logger.error(f"RpcError (probably disconnected)")
-                del self.queue[id]
-                del self.server_servicer[id]
-                self.info_str = ""
+                del self.server_servicer_status[id]
                 
-                if len(self.server_servicer) == 0:
+                if len(self.server_servicer_status) == 0:
                     self.queue.clear()
-                    self.event_flag["client_choosed_source"] = False
+                    self.info_str = ""
+                    self.info = None
+                    self.event_flag["client_wants_source"] = False
 
-                local_flag["running"] = False
                 return
 
         threading.Thread(target=handle_requests).start()
 
         while context.is_active():
-
-            if not local_flag["running"]:
-                return
             
-            # self.logger.debug(f"Server sends heartbeat to client: {id}")
-            yield client_server_pb2.ServerClientMessage(
-                heartbeat=client_server_pb2.ServerClientHeartbeat()
-            )
-
-            if not local_flag["already_sent_info_to_client"] and self.info_str != "":
-                yield client_server_pb2.ServerClientMessage(
-                    info=client_server_pb2.ServerClientInfo(info=self.info_str)
-                )
-                local_flag["already_sent_info_to_client"] = True
-
-            if not self.status_flag["pause"] and self.server_servicer[id] < len(self.queue) and len(self.outgoing[id]) == 0:
-                frames = self.queue[self.server_servicer[id]]
-                self.logger.debug(f"Server send segment: {self.server_servicer[id]}")
-                self.server_servicer[id] += 1
-                yield client_server_pb2.ServerClientMessage(
-                    chunk=client_server_pb2.ServerClientChunk(chunk=frames)
-                )
-            
-            
-            if id == 0 and self.event_flag["server_have_to_ask_initial_client_for_status"] and local_flag["already_sent_info_to_client"]:
+            if id == 0 and self.event_flag["server_have_to_ask_initial_client_for_status"] and not self.server_servicer_status[id]["status"] == "initialised":
+                self.logger.info(f"Server send server_status_request to client with id: 0")
                 yield client_server_pb2.ServerClientMessage(
                     server_status_request=client_server_pb2.ServerStatusRequest()
                 )
                 self.event_flag["server_have_to_ask_initial_client_for_status"] = False
-                self.logger.info(f"Server send server_status_request to client with id: 0")
+
+            elif not self.status_flag["pause"] and self.server_servicer_status[id]["segment_id"] < len(self.queue) and len(self.outgoing[id]) == 0:
+                self.logger.debug(f"Server send segment: {self.server_servicer_status[id]["segment_id"]}")
+                frames = self.queue[self.server_servicer_status[id]["segment_id"]]
+                self.server_servicer_status[id]["segment_id"] += 1
+                yield client_server_pb2.ServerClientMessage(
+                    chunk=client_server_pb2.ServerClientChunk(chunk=frames)
+                )
+            
+            else:
+                # self.logger.debug(f"Server sends heartbeat to client: {id}")
+                yield client_server_pb2.ServerClientMessage(
+                    heartbeat=client_server_pb2.ServerClientHeartbeat()
+                )
+            
+            # OUTGOING PROCESSING START
             
             if len(self.outgoing[id]) > 0:
                 typ, load = self.outgoing[id].popleft()
@@ -241,5 +259,8 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
                         yield client_server_pb2.ServerClientMessage(
                             info=client_server_pb2.ServerClientInfo(info=self.info_str)
                         )
+                        self.server_servicer_status[id]["status"] = "info"
                     else:
                         self.outgoing[id].append(("info_resend", ""))
+            
+            # OUTGOING PROCESSING END

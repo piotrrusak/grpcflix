@@ -48,10 +48,13 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         def handle_requests():
             try:
                 for message in request_iterator:
+
                     if(message.HasField("server_start_request")):
                         pass
+
                     elif(message.HasField("server_stop_request")):
                         pass
+                    
                     elif(message.HasField("server_source_request")):
                         self.streamer_servicer_status[id] = "initialised"
                         if not os.path.exists(f"resource/{message.server_source_request.source}"):
@@ -61,21 +64,27 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
                         if not os.path.exists(f"segment/{message.server_source_request.source.split(".")[0]}/info.json"):
                             VideoSegmenter(f"resource/{message.server_source_request.source}", f"segment/{message.server_source_request.source.split(".")[0]}/info.json", f"segment/{message.server_source_request.source.split(".")[0]}", 1).segment()
                         self.streamer_servicer_data[id][0], self.streamer_servicer_data[id][1], self.streamer_servicer_data[id][2]  = self.load_data("segment/" + message.server_source_request.source.split(".")[0])
+                    
+                    # UPLOAD START
+
                     elif(message.HasField("server_upload_start")):
                         upload_buffer = b''
+                    
                     elif(message.HasField("server_upload_chunk")):
                         upload_buffer += message.server_upload_chunk.chunk
+                    
                     elif(message.HasField("server_upload_end")):
-                        with open("resource/1.mp4", 'wb') as f:
+                        with open(f"resource/{message.server_upload_end.filename}", 'wb') as f:
+                            self.logger.info(f"Write in file: {message.server_upload_end.filename}")
                             f.write(upload_buffer)
                             del upload_buffer
+                    
+                    # UPLOAD END
             
             except grpc.RpcError as e:
                 self.logger.error(f"RpcError")
         
         threading.Thread(target=handle_requests).start()
-
-
 
         while context.is_active():
 
@@ -85,7 +94,7 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
                 )
                 self.streamer_servicer_status[id] = "sent_info"
 
-            if self.streamer_servicer_status[id] == "sent_info" and not self.streamer_servicer_data[id][0] == None:
+            elif self.streamer_servicer_status[id] == "sent_info" and not self.streamer_servicer_data[id][0] == None:
                 while self.streamer_servicer_data[id][4] < len(self.streamer_servicer_data[id][0]):
                     chunk = self.streamer_servicer_data[id][0][self.streamer_servicer_data[id][4]:(self.streamer_servicer_data[id][4]+self.streamer_servicer_data[id][2][self.streamer_servicer_data[id][3]])]
                     self.streamer_servicer_data[id][4] += self.streamer_servicer_data[id][2][self.streamer_servicer_data[id][3]]
@@ -102,7 +111,9 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
                 self.streamer_servicer_status[id] = "sent_data"
                 self.logger.info("Streamer finished data transfer to server.")
 
-            if len(self.outgoing[id]) != 0:
+            # OUTGOING PROCESSING START
+
+            if len(self.outgoing[id]) > 0:
                 self.logger.info(f"Streamer sends no_such_file to")
                 while len(self.outgoing[id]) > 0:
                     typ, load = self.outgoing[id].popleft()
@@ -112,3 +123,5 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
                             streamer_no_such_file_request = server_streamer_pb2.StreamerNoSuchFileRequest()
                         )
                 continue
+            
+            # OUTGOING PROCESSING END

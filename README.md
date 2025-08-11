@@ -62,7 +62,7 @@ logger.propagate = False```
 
 ## Short term
 
-- Cleanup code after developing upload.
+- Faster stream upload, on diffrent thread.
 
 ## Long term
 

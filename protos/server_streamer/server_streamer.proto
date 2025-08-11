@@ -33,7 +33,7 @@ message ServerUploadChunk {
 }
 
 message ServerUploadEnd {
-
+  string filename = 1;
 }
 
 message StreamerNoSuchFileRequest {
