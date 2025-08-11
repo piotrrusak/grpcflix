@@ -2,12 +2,9 @@
 
 Prototype video streaming service using gRPC and Python – live chat and user-uploaded videos included.
 
-```
-python3 -m grpc_tools.protoc -I./ --python_out=. --grpc_python_out=. video.proto
-```
-
 ## scripts
 
+- **clegment.sh** deletes all files in streamer/segment/
 - **clog.sh** deletes all .log files
 - **generpc.sh** generates all grpc files and copies them to their destination
 - **grpclean.sh** deletes all grpc files (apart from .proto)
@@ -53,7 +50,11 @@ logger.propagate = False```
 
 - **grpc:** when changing .proto file, by careful about named arguments, and names of objects.
 
+---
+
 - **first GIL problem** projection with pygame oveloads GIL, because of this other threads has no possibility to run, because of this, projection blocked server_connection in client.
+
+---
 
 - **cv2 flags** Used by VideoCapture.set(flag, value): https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html#gaeb8dd9c89c10a5c63c139bf7c4f5704d
 
@@ -61,11 +62,12 @@ logger.propagate = False```
 
 ## Short term
 
-<!-- - Safe exit for server, without blow up streamer. -->
-<!-- - In client, server and streamer, chage self.start, self.close etc. to self.flag = dict() and contain all flags in there. -->
-<!-- - Possibility to choose which video to watch. -->
-- Uploading own video by client to streamer.
+- Cleanup code after developing upload.
 
 ## Long term
+
+- Chat
+
+- Better projection than now.
 
 - Audio
