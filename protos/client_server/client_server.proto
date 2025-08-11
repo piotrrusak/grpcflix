@@ -14,6 +14,9 @@ message ClientServerMessage {
     ClientServerHeartbeat heartbeat = 5;
     ClientStatusAnswer client_status_answer = 6;
     ClientChooseSourceAnswer client_choose_source_answer = 7;
+    ClientUploadStart client_upload_start = 8;
+    ClientUploadChunk client_upload_chunk = 9;
+    ClientUploadEnd client_upload_end = 10;
   }
 }
 
@@ -27,6 +30,18 @@ message ServerClientMessage {
     ServerStatusRequest server_status_request = 6;
     ServerChooseSourceRequest server_choose_source_request = 7;
   }
+}
+
+message ClientUploadStart {
+
+}
+
+message ClientUploadChunk {
+  bytes chunk = 1;
+}
+
+message ClientUploadEnd {
+
 }
 
 message ServerChooseSourceRequest {

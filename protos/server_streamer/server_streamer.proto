@@ -10,6 +10,9 @@ message ServerStreamerMessage {
     ServerStartRequest server_start_request = 1;
     ServerStopRequest server_stop_request = 2;
     ServerSourceRequest server_source_request = 3;
+    ServerUploadStart server_upload_start = 4;
+    ServerUploadChunk server_upload_chunk = 5;
+    ServerUploadEnd server_upload_end = 6;
   }
 }
 
@@ -19,6 +22,18 @@ message StreamerServerMessage {
     StreamerServerChunk chunk = 2;
     StreamerNoSuchFileRequest streamer_no_such_file_request = 3;
   }
+}
+
+message ServerUploadStart {
+
+}
+
+message ServerUploadChunk {
+  bytes chunk = 1;
+}
+
+message ServerUploadEnd {
+
 }
 
 message StreamerNoSuchFileRequest {

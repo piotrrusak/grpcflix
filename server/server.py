@@ -31,14 +31,17 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
         self.server_servicer = dict()
         self.outgoing = dict()
         self.source = None
+        self.upload_queue = collections.deque()
 
         self.event_flag = {
             "server_have_to_ask_initial_client_for_status": False,
             "client_choosed_source": False,
+            "client_finished_upload": False
         }
         
         self.status_flag = {
-            "pause": False
+            "pause": False,
+            "upload_in_progress": False
         }
 
         threading.Thread(target=self.streamer_connection).start()
@@ -64,6 +67,20 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
                 self.event_flag["client_choosed_source"] = False
                 for key in self.outgoing.keys():
                     self.outgoing[key].append(("pause", 0))
+            if self.event_flag["client_finished_upload"]:
+                self.logger.info("Server start uploading to streamer.")
+                yield server_streamer_pb2.ServerStreamerMessage(
+                    server_upload_start = server_streamer_pb2.ServerUploadStart()
+                )
+                while len(self.upload_queue) > 0:
+                    yield server_streamer_pb2.ServerStreamerMessage(
+                        server_upload_chunk = server_streamer_pb2.ServerUploadChunk(chunk = self.upload_queue.popleft())
+                    )
+                yield server_streamer_pb2.ServerStreamerMessage(
+                    server_upload_end = server_streamer_pb2.ServerUploadEnd()
+                )
+                self.logger.info("Server end uploading to streamer.")
+                self.event_flag["client_finished_upload"] = False
             time.sleep(0.01)
     
     def streamer_connection(self):
@@ -147,6 +164,16 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
                         self.logger.info(f"Server got client_choose_source_answer: {message.client_choose_source_answer.source}")
                         self.source = message.client_choose_source_answer.source
                         self.event_flag["client_choosed_source"] = True
+                    elif(message.HasField("client_upload_start")):
+                        self.logger.info(f"Server got client_upload_start.")
+                        self.status_flag["upload_in_progress"] = True
+                    elif(message.HasField("client_upload_chunk")):
+                        self.logger.debug(f"Server got client_upload_chunk.")
+                        self.upload_queue.append(message.client_upload_chunk.chunk)
+                    elif(message.HasField("client_upload_end")):
+                        self.logger.info(f"Server got client_upload_end.")
+                        self.status_flag["upload_in_progress"] = False
+                        self.event_flag["client_finished_upload"] = True
                         
             except grpc.RpcError as e:
                 self.logger.error(f"RpcError (probably disconnected)")

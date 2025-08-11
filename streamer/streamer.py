@@ -31,6 +31,7 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         return current_data, info_str, info
 
     def Stream(self, request_iterator, context):
+        
         if len(self.streamer_servicer_status) == 0:
             id = 0
             self.logger.info(f"First server joined to streamer.")
@@ -60,6 +61,15 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
                         if not os.path.exists(f"segment/{message.server_source_request.source.split(".")[0]}/info.json"):
                             VideoSegmenter(f"resource/{message.server_source_request.source}", f"segment/{message.server_source_request.source.split(".")[0]}/info.json", f"segment/{message.server_source_request.source.split(".")[0]}", 1).segment()
                         self.streamer_servicer_data[id][0], self.streamer_servicer_data[id][1], self.streamer_servicer_data[id][2]  = self.load_data("segment/" + message.server_source_request.source.split(".")[0])
+                    elif(message.HasField("server_upload_start")):
+                        upload_buffer = b''
+                    elif(message.HasField("server_upload_chunk")):
+                        upload_buffer += message.server_upload_chunk.chunk
+                    elif(message.HasField("server_upload_end")):
+                        with open("resource/1.mp4", 'wb') as f:
+                            f.write(upload_buffer)
+                            del upload_buffer
+            
             except grpc.RpcError as e:
                 self.logger.error(f"RpcError")
         

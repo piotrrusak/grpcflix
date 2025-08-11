@@ -34,7 +34,8 @@ class Client:
             "pause_button_status": False,
             "unpause_button_status": False,
             "server_asks_for_source": False,
-            "server_asks_for_status": False
+            "server_asks_for_status": False,
+            "client_wants_to_upload": False
         }
 
         self.status_flag = {
@@ -51,7 +52,8 @@ class Client:
             )
 
         while not self.status_flag["stop"]:
-            while not self.event_flag["pause_button_status"] and not self.event_flag["unpause_button_status"] and not self.event_flag["server_asks_for_status"] and not self.event_flag["server_asks_for_source"]:
+            while not self.event_flag["client_wants_to_upload"] and not self.event_flag["pause_button_status"] and not self.event_flag["unpause_button_status"] and not self.event_flag["server_asks_for_status"] and not self.event_flag["server_asks_for_source"]:
+                
                 if self.status_flag["stop"]:
                     self.logger.info("Client sends client_stop_request.")
                     yield client_server_pb2.ClientServerMessage(
@@ -82,6 +84,24 @@ class Client:
                     client_status_answer=client_server_pb2.ClientStatusAnswer(frame_id=str(self.frame_id))
                 )
                 self.event_flag["server_asks_for_status"] = False
+            elif self.event_flag["client_wants_to_upload"]:
+                self.logger.info("Client prepere data to upload.")
+                queue = self.prepere_to_upload("")
+                self.logger.info("Client start upload to server.")
+                yield client_server_pb2.ClientServerMessage(
+                    client_upload_start = client_server_pb2.ClientUploadStart()
+                )
+                while len(queue) > 0:
+                    self.logger.debug("Client upload chunk to server")
+                    yield client_server_pb2.ClientServerMessage(
+                        client_upload_chunk = client_server_pb2.ClientUploadChunk(chunk = queue.popleft())
+                    )
+                self.logger.info("Client end upload to server")
+                yield client_server_pb2.ClientServerMessage(
+                    client_upload_end = client_server_pb2.ClientUploadEnd()
+                )
+                self.event_flag["client_wants_to_upload"] = False
+                
             else:
                 self.logger.info("Client sends heartbeat to server")
                 yield client_server_pb2.ClientServerMessage(
@@ -99,6 +119,18 @@ class Client:
                     time.sleep(0.01)
                 self.queue.append(self.buffer[:self.info[i]])
                 self.buffer = self.buffer[self.info[i]:]
+    
+    def prepere_to_upload(self, filepath):
+        queue = collections.deque()
+        with open("upload/1.mp4", "rb") as f:
+            buffer = f.read()
+        phase = 0
+        while phase + 2000000 < len(buffer):
+            queue.append(buffer[phase:phase+2000000])
+            phase += 2000000
+        queue.append(buffer[phase:])
+        del buffer
+        return queue
 
     def server_connection(self):
         channel = connect_to_server(self.server_url, self.logger)
@@ -171,6 +203,10 @@ class Client:
                         print(f"Please type in name of file you want to watch: (base: sample.mp4)")
                         self.source = input()
                         self.event_flag["server_asks_for_source"] = True
+                    if event.key == pygame.K_l:
+                        print(f"Please type in name of file you want to uplaod:")
+                        self.upload = input()
+                        self.event_flag["client_wants_to_upload"] = True
 
             if not self.status_flag["pause"] and len(self.queue) > 0:
 
@@ -202,11 +238,9 @@ class Client:
 
                     result = np.zeros((window_height, window_width, 3), dtype=np.uint8)
 
-                    # Oblicz przesunięcie aby wyśrodkować obraz
                     x_offset = (window_width - new_width) // 2
                     y_offset = (window_height - new_height) // 2
 
-                    # Wstaw przeskalowany obraz na tło
                     result[y_offset:y_offset+new_height, x_offset:x_offset+new_width] = frame
 
                     frame = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)

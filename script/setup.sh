@@ -3,6 +3,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 deactivate
+mkdir upload/
 cd ..
 cd server
 python3 -m venv .venv
