@@ -38,7 +38,6 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
             time.sleep(0.1)
         self.active_loaders[id] -= 1
         self.logger.info(f"Streamer ends load_data: {input_dir_path}")
-            
 
     def Stream(self, request_iterator, context):
         

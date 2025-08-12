@@ -62,12 +62,12 @@ logger.propagate = False
 
 ## Short term
 
-- Faster stream upload, on diffrent thread.
+- Cleanup
 
 ## Long term
 
-- Chat
-
 - Better projection than now.
+
+- Chat
 
 - Audio
