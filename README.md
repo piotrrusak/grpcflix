@@ -42,7 +42,7 @@ logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
 # Because of root logger (every custom logger is child of root logger)
-logger.propagate = False```
+logger.propagate = False
 
 ```
 

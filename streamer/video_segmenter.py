@@ -51,6 +51,6 @@ class VideoSegmenter():
             json.dump(temp, f, indent=4)
 
 if __name__ == '__main__':
-    filename = "video.mp4"
+    filename = "sample.mp4"
     video_segmenter = VideoSegmenter(f"resource/{filename}", f"segment/{filename.split(".")[0]}/info.json", f"segment/{filename.split(".")[0]}", 1)
     video_segmenter.segment()

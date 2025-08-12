@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 # logger.setLevel(logging.NOTSET / logging.DEBUG / logging.INFO / logging.WARNING / logging.ERROR / logging.CRITICAL)
 # Sets the minimum level of logs that will be taken into account (i.e., processed).
 # If not set, have value of logging.NOTSET, then logger takes value of root logger i.e. logging.WARNING.
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 

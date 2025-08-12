@@ -102,9 +102,14 @@ class Server(client_server_pb2_grpc.ClientServerServiceServicer):
                     self.logger.info("Server got info.")
                     self.info_str = message.info.info
                     self.info = json.loads(self.info_str)
+                    self.queue.clear()
+
+                    for key in self.server_servicer_status.keys():
+                        self.server_servicer_status[key]["segment_id"] = 0
+                        self.server_servicer_status[key]["status"] = "initialised"
                 
                 elif message.HasField("chunk"):
-                    self.logger.debug("Server got chunk.")
+                    self.logger.debug("Server got segment.")
                     self.queue.append(message.chunk.chunk)
                 
                 elif message.HasField("streamer_no_such_file_request"):

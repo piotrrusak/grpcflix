@@ -150,6 +150,8 @@ class Client:
                 if message.HasField("info"):
                     self.logger.info("Client got info")
                     self.info = json.loads(message.info.info)
+                    self.queue.clear()
+                    self.buffer = b''
                 
                 elif message.HasField("chunk"):
                     self.logger.debug("Client got chunk")
@@ -209,8 +211,13 @@ class Client:
                         self.status_flag["stop"] = True
                         running = False
                     if event.key == pygame.K_s:
-                        print(f"Please type in name of file you want to watch: (base: sample.mp4)")
+                        print(f"Please type in name of file you want to watch from list below:")
+                        for key in self.name.keys():
+                            print(f"{key}")
                         self.source = input()
+                        if self.source not in self.name.keys():
+                            print(f"Incorrect name, type again:")
+                            self.source = input()
                         self.event_flag["client_wants_source"] = True
                     if event.key == pygame.K_l:
                         print(f"Please type in filename of file you want to uplaod:")

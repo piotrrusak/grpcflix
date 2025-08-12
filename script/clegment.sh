@@ -1,1 +1,1 @@
-rm -rf streamer/segment/*
+find streamer/segment -mindepth 1 -name sample -prune -o -exec rm -rf {} +
