@@ -62,11 +62,9 @@ logger.propagate = False
 
 ## Short term
 
-- Cleanup
+- Better projection than now.
 
 ## Long term
-
-- Better projection than now.
 
 - Chat
 

@@ -7,68 +7,86 @@ service ClientServerService {
 
 message ClientServerMessage {
   oneof payload {
-    ClientStartRequest client_start_request = 1;
-    ClientStopRequest client_stop_request = 2;
-    ClientPauseRequest client_pause_request = 3;
-    ClientUnpauseRequest client_unpause_request = 4;
-    ClientServerHeartbeat heartbeat = 5;
-    ClientStatusAnswer client_status_answer = 6;
-    ClientChooseSourceAnswer client_choose_source_answer = 7;
-    ClientUploadStart client_upload_start = 8;
-    ClientUploadChunk client_upload_chunk = 9;
-    ClientUploadEnd client_upload_end = 10;
+    ClientServerStart client_server_start = 1;
+    ClientServerStop client_server_stop = 2;
+    ClientServerPause client_server_pause = 3;
+    ClientServerUnpause client_server_unpause = 4;
+    ClientServerSource client_server_source = 5;
+
+    ClientServerStatusAnswer client_server_status_answer = 6;
+
+    ClientServerUploadStart client_server_upload_start = 7;
+    ClientServerUploadChunk client_server_upload_chunk = 8;
+    ClientServerUploadEnd client_server_upload_end = 9;
   }
+}
+
+message ClientServerStart {
+  
+}
+
+message ClientServerStop {
+
+}
+
+message ClientServerPause {
+  string frame_id = 1;
+}
+
+message ClientServerUnpause {
+  string frame_id = 1;
+}
+
+message ClientServerSource {
+  string source = 1;
+}
+
+message ClientServerStatusAnswer {
+  string frame_id = 1;
+}
+
+message ClientServerUploadStart {
+
+}
+
+message ClientServerUploadChunk {
+  bytes chunk = 1;
+}
+
+message ClientServerUploadEnd {
+  string filename = 1;
 }
 
 message ServerClientMessage {
   oneof payload {
-    ServerClientInfo info = 1;
-    ServerClientChunk chunk = 2;
-    ServerPauseRequest server_pause_request = 3;
-    ServerUnpauseRequest server_unpause_request = 4;
-    ServerClientHeartbeat heartbeat = 5;
-    ServerStatusRequest server_status_request = 6;
-    ServerChooseSourceRequest server_choose_source_request = 7;
+    ServerClientInfo server_client_info = 1;
+    ServerClientSegment server_client_segment = 2;
+    
+    ServerClientPause server_client_pause = 3;
+    ServerClientUnpause server_client_unpause = 4;
+
+    ServerClientNewSource server_client_new_source = 5;
+    ServerClientClearInfo server_client_clear_info = 6;
+    
+    ServerClientStatusRequest server_client_status_request = 7;
+
+    ServerClientHeartbeat server_client_heartbeat = 8;
   }
 }
 
-message ClientUploadStart {
-
+message ServerClientInfo {
+  string info = 1;
 }
 
-message ClientUploadChunk {
-  bytes chunk = 1;
+message ServerClientSegment {
+  bytes segment = 1;
 }
 
-message ClientUploadEnd {
-  string filename = 1;
-}
-
-message ServerChooseSourceRequest {
-
-}
-
-message ClientChooseSourceAnswer {
-  string source = 1;
-}
-
-message ServerStatusRequest {
-  
-}
-
-message ClientStatusAnswer {
+message ServerClientPause {
   string frame_id = 1;
 }
 
-message ClientServerHeartbeat {
-
-}
-
-message ServerClientHeartbeat {
-
-}
-
-message ServerPauseRequest {
+message ServerClientUnpause {
   string frame_id = 1;
 }
 
@@ -76,26 +94,18 @@ message ServerUnpauseRequest {
   string frame_id = 1;
 }
 
-message ClientStartRequest {
+message ServerClientNewSource {
+  string filename = 1;
+}
+
+message ServerClientClearInfo {
   
 }
 
-message ClientStopRequest {
-
+message ServerClientStatusRequest {
+  
 }
 
-message ClientPauseRequest {
-  string frame_id = 1;
-}
+message ServerClientHeartbeat {
 
-message ClientUnpauseRequest {
-  string frame_id = 1;
-}
-
-message ServerClientChunk {
-  bytes chunk = 1;
-}
-
-message ServerClientInfo {
-  string info = 1;
 }

@@ -28,6 +28,9 @@ class Client:
         self.name = {
             "sample": "sample.mp4"
         }
+        self.source_availability = {
+            "sample.mp4": True
+        }
         
         self.info = None
         self.frame_id = 0
@@ -47,19 +50,6 @@ class Client:
             "stop": False
         }
     
-    def buffer_to_queue(self, start):
-        self.logger.info(f"Client buffer_to_queue starts from segment no.: {start}")
-        while self.info is None:
-            time.sleep(0.01)
-        for i in range(len(self.info)-1):
-            if i >= start:
-                self.logger.debug(f"Client process chunk: {i}. (len(self.buffer), len(self.queue)) = ({len(self.buffer)}, {len(self.queue)})")
-                if len(self.info) > i:
-                    while len(self.buffer) < self.info[i]:
-                        time.sleep(0.01)
-                    self.queue.append(self.buffer[:self.info[i]])
-                    self.buffer = self.buffer[self.info[i]:]
-    
     def prepere_to_upload(self, filename):
         queue = collections.deque()
         with open(f"upload/{filename}", "rb") as f:
@@ -76,7 +66,7 @@ class Client:
 
         if self.status_flag["start"]:
             yield client_server_pb2.ClientServerMessage(
-                client_start_request=client_server_pb2.ClientStartRequest()
+                client_server_start = client_server_pb2.ClientServerStart()
             )
 
         while not self.status_flag["stop"]:
@@ -84,7 +74,7 @@ class Client:
             if self.event_flag["pause_button_status"]:
                 self.logger.info(f"Client sends pause request to server. (self.frame_id = {self.frame_id})")
                 yield client_server_pb2.ClientServerMessage(
-                    client_pause_request=client_server_pb2.ClientPauseRequest(frame_id=str(self.frame_id))
+                    client_server_pause = client_server_pb2.ClientServerPause(frame_id=str(self.frame_id))
                 )
                 self.event_flag["pause_button_status"] = False
             
@@ -95,51 +85,50 @@ class Client:
                 else:
                     source = self.source
                 yield client_server_pb2.ClientServerMessage(
-                    client_choose_source_answer = client_server_pb2.ClientChooseSourceAnswer(source=source)
+                    client_server_source = client_server_pb2.ClientServerSource(source=source)
                 )
                 self.event_flag["client_wants_source"] = False
             
             elif self.event_flag["unpause_button_status"]:
                 self.logger.info(f"Client sends unpause request to server. (self.frame_id = {self.frame_id})")
                 yield client_server_pb2.ClientServerMessage(
-                    client_unpause_request=client_server_pb2.ClientUnpauseRequest(frame_id=str(self.frame_id))
+                    client_server_unpause = client_server_pb2.ClientServerUnpause(frame_id=str(self.frame_id))
                 )
                 self.event_flag["unpause_button_status"] = False
             
             elif self.event_flag["server_asks_for_status"]:
                 self.logger.info(f"Client sends its status to server. (self.frame_id = {self.frame_id})")
                 yield client_server_pb2.ClientServerMessage(
-                    client_status_answer=client_server_pb2.ClientStatusAnswer(frame_id=str(self.frame_id))
+                    client_server_status_answer = client_server_pb2.ClientServerStatusAnswer(frame_id=str(self.frame_id))
                 )
                 self.event_flag["server_asks_for_status"] = False
             
             elif self.event_flag["client_wants_to_upload"]:
                 self.logger.info("Client send client_upload_start to server.")
                 yield client_server_pb2.ClientServerMessage(
-                    client_upload_start = client_server_pb2.ClientUploadStart()
+                    client_server_upload_start = client_server_pb2.ClientServerUploadStart()
                 )
                 self.logger.info("Client starts prepere_to_upload.")
                 queue = self.prepere_to_upload(self.upload_filename)
                 self.name[self.upload_pseudoname] = self.upload_filename
+                self.source_availability[self.upload_filename] = False
                 self.logger.info("Client ends prepere_to_upload")
                 while len(queue) > 0:
                     self.logger.debug("Client upload chunk to server")
                     yield client_server_pb2.ClientServerMessage(
-                        client_upload_chunk = client_server_pb2.ClientUploadChunk(chunk = queue.popleft())
+                        client_server_upload_chunk = client_server_pb2.ClientServerUploadChunk(chunk = queue.popleft())
                     )
                 self.logger.info("Client end upload to server")
                 yield client_server_pb2.ClientServerMessage(
-                    client_upload_end = client_server_pb2.ClientUploadEnd(filename = self.upload_filename)
+                    client_server_upload_end = client_server_pb2.ClientServerUploadEnd(filename = self.upload_filename)
                 )
                 self.event_flag["client_wants_to_upload"] = False
-                
-            else:
-                # self.logger.debug("Client sends heartbeat to server")
-                yield client_server_pb2.ClientServerMessage(
-                    heartbeat=client_server_pb2.ClientServerHeartbeat()
-                )
             
             time.sleep(0.1)
+        
+        yield client_server_pb2.ClientServerMessage(
+            client_server_stop = client_server_pb2.ClientServerStop()
+        )
 
     def server_connection(self):
         channel = connect_to_server(self.server_url, self.logger)
@@ -147,36 +136,43 @@ class Client:
         response_stream = stub.Stream(self.generator())
         try:
             for message in response_stream:
-                if message.HasField("info"):
-                    self.logger.info("Client got info")
-                    self.info = json.loads(message.info.info)
+                if message.HasField("server_client_info"):
+                    self.logger.info("Client got server_client_info")
+                    self.info = json.loads(message.server_client_info.info)
                     self.queue.clear()
                     self.buffer = b''
                 
-                elif message.HasField("chunk"):
-                    self.logger.debug("Client got chunk")
-                    self.queue.append(message.chunk.chunk)
+                elif message.HasField("server_client_segment"):
+                    self.logger.debug("Client got server_client_segment")
+                    self.queue.append(message.server_client_segment.segment)
                 
-                elif message.HasField("server_pause_request"):
-                    self.logger.info(f"Client got server_pause_request. (self.frame_id = {message.server_pause_request.frame_id})")
-                    self.frame_id = int(message.server_pause_request.frame_id)
+                elif message.HasField("server_client_pause"):
+                    self.logger.info(f"Client got server_client_pause. (self.frame_id = {message.server_client_pause.frame_id})")
+                    self.frame_id = int(message.server_client_pause.frame_id)
                     self.queue.clear()
                     self.buffer = b''
                     self.status_flag["pause"] = True
                 
-                elif message.HasField("server_unpause_request"):
-                    self.logger.info(f"Client got server_unpause_request. (self.frame_id = {message.server_unpause_request.frame_id})")
-                    self.frame_id =int(message.server_unpause_request.frame_id)
+                elif message.HasField("server_client_unpause"):
+                    self.logger.info(f"Client got server_client_unpause. (self.frame_id = {message.server_client_unpause.frame_id})")
+                    self.frame_id =int(message.server_client_unpause.frame_id)
                     self.buffer = b''
                     self.queue.clear()
                     self.status_flag["pause"] = False
-                    threading.Thread(target=self.buffer_to_queue, args=(int(message.server_unpause_request.frame_id)//int(round(self.info[-1][2])),)).start()
                 
-                elif message.HasField("server_status_request"):
-                    self.logger.info("Client got server_status_request")
+                elif message.HasField("server_client_status_request"):
+                    self.logger.info("Client got server_client_status_request")
                     self.event_flag["server_asks_for_status"] = True
                 
-                elif message.HasField("heartbeat"):
+                elif message.HasField("server_client_new_source"):
+                    self.logger.info(f"CLIENT - got server_client_new_source")
+                    self.source_availability[message.server_client_new_source.filename] = True
+                
+                elif message.HasField("server_client_clear_info"):
+                    self.logger.info(f"CLIENT - got server_client_clear_info")
+                    self.info = None
+                
+                elif message.HasField("server_client_heartbeat"):
                     # self.logger.debug("Cleint got heartbeat from server.")
                     pass
                     
@@ -201,12 +197,12 @@ class Client:
                 if event.type == pygame.QUIT:
                     running = False
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_p:
-                        self.event_flag["pause_button_status"] = True
-                        self.status_flag["pause"] = True
-                    if event.key == pygame.K_u:
-                        self.event_flag["unpause_button_status"] = True
-                        self.status_flag["pause"] = False
+                    if self.info != None:
+                        if event.key == pygame.K_SPACE:
+                            if self.status_flag["pause"]:
+                                self.event_flag["unpause_button_status"] = True
+                            else:
+                                self.event_flag["pause_button_status"] = True
                     if event.key == pygame.K_q or event.key == pygame.QUIT:
                         self.status_flag["stop"] = True
                         running = False
@@ -214,17 +210,27 @@ class Client:
                         print(f"Please type in name of file you want to watch from list below:")
                         for key in self.name.keys():
                             print(f"{key}")
-                        self.source = input()
-                        if self.source not in self.name.keys():
-                            print(f"Incorrect name, type again:")
-                            self.source = input()
-                        self.event_flag["client_wants_source"] = True
+                        source = input()
+                        if source not in self.name.keys():
+                            print(f"No {source} in list above.")
+                        else:
+                            if self.source_availability[self.name[source]]:
+                                self.source = source
+                                self.event_flag["client_wants_source"] = True
+                            else:
+                                self.logger.warning(f"CLIENT - source is not available")
                     if event.key == pygame.K_l:
                         print(f"Please type in filename of file you want to uplaod:")
-                        self.upload_filename = input()
+                        upload_filename = input()
                         print(f"Please type in pseudoname of this file:")
-                        self.upload_pseudoname = input()
-                        self.event_flag["client_wants_to_upload"] = True
+                        upload_pseudoname = input()
+
+                        if upload_filename not in os.listdir("upload/"):
+                            print(f"There is no {upload_filename} in upload/ directory")
+                        else:
+                            self.upload_filename = upload_filename
+                            self.upload_pseudoname = upload_pseudoname
+                            self.event_flag["client_wants_to_upload"] = True
 
             if not self.status_flag["pause"] and len(self.queue) > 0:
 
@@ -273,16 +279,16 @@ class Client:
                             running = False
                             break
                         if event.type == pygame.KEYDOWN:
-                            if event.key == pygame.K_p:
-                                self.event_flag["pause_button_status"] = True
-                                self.status_flag["pause"] = True
-                            if event.key == pygame.K_u:
-                                self.event_flag["unpause_button_status"] = True
-                                self.status_flag["pause"] = False
-                            if event.key == pygame.K_q or event.key == pygame.QUIT:
-                                self.event_flag["pause_button_status"] = True
-                                self.status_flag["stop"] = True
-                                running = False
+                            if self.info != None:
+                                if event.key == pygame.K_SPACE:
+                                    if self.status_flag["pause"]:
+                                        self.event_flag["unpause_button_status"] = True
+                                    else:
+                                        self.event_flag["pause_button_status"] = True
+                                if event.key == pygame.K_q or event.key == pygame.QUIT:
+                                    self.event_flag["pause_button_status"] = True
+                                    self.status_flag["stop"] = True
+                                    running = False
 
                     if self.status_flag["pause"]:
                         break

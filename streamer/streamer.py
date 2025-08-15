@@ -20,7 +20,7 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
 
     def load_data(self, id, input_dir_path):
         self.logger.info(f"Streamer starts load_data: {input_dir_path}")
-        while self.streamer_servicer_status[id] != "initialised":
+        while self.streamer_servicer_status[id]["status"] != "initialised":
             time.sleep(0.01)
         with open(os.path.join(input_dir_path, "info.json"), 'r') as f:
             self.streamer_servicer_data[id][1] = f.read()
@@ -50,26 +50,35 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
                 id = random.randint(0, 10000)
             self.logger.info(f"New server joined to streamer.")
         
-        self.streamer_servicer_status[id] = "initialised"
+        self.streamer_servicer_status[id] = {
+            "segment_id": 0,
+            "status": "initialised"
+        }
         self.streamer_servicer_data[id] = [collections.deque(), None, None]
         self.outgoing[id] = collections.deque()
         self.active_loaders[id] = 0
 
+        streamer_servicer_source = {
+            "sample.mp4": True
+        }
+
+        def source_updater(self, filename):
+            while True:
+                if os.path.exists(os.path.join("segment", filename.split(".")[0], "info.json")):
+                    streamer_servicer_source[filename] = True
+                    self.outgoing[id].append(("new_source", filename))
+                    break
+                else:
+                    self.logger.info(f"STREAMER - {id} - source_updater - segmentation lasts")
+                    time.sleep(5)
+
         def handle_requests(self):
             try:
                 for message in request_iterator:
-
-                    if(message.HasField("server_start_request")):
-                        pass
-
-                    elif(message.HasField("server_stop_request")):
-                        pass
                     
-                    elif(message.HasField("server_source_request")):
-                        if not os.path.exists(f"resource/{message.server_source_request.source}"):
-                            self.logger.warning(f"No such source as: {message.server_source_request.source}")
-                            self.outgoing[id].append(("no_such_file", ""))
-                            continue
+                    if(message.HasField("server_streamer_source")):
+                        if not os.path.exists(f"resource/{message.server_streamer_source.source}"):
+                            self.logger.warning(f"No such source as: {message.server_streamer_source.source}")
                         
                         self.active_loaders[id] += 1
                         while self.active_loaders[id] != 1:
@@ -78,26 +87,29 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
                         self.streamer_servicer_data[id][0] = collections.deque()
                         self.streamer_servicer_data[id][1] = None
                         self.streamer_servicer_data[id][2] = None
-                        self.streamer_servicer_status[id] = "initialised"
-                        threading.Thread(target=self.load_data, args=(id, "segment/" + message.server_source_request.source.split(".")[0])).start()
+                        self.streamer_servicer_status[id]["status"] = "initialised"
+                        self.streamer_servicer_status[id]["segment_id"] = 0
+                        self.outgoing[id].append(("resend_info", ""))
+                        threading.Thread(target=self.load_data, args=(id, "segment/" + message.server_streamer_source.source.split(".")[0])).start()
 
                     # UPLOAD START
 
-                    elif(message.HasField("server_upload_start")):
+                    elif(message.HasField("server_streamer_upload_start")):
                         upload_buffer = b''
                     
-                    elif(message.HasField("server_upload_chunk")):
-                        upload_buffer += message.server_upload_chunk.chunk
+                    elif(message.HasField("server_streamer_upload_chunk")):
+                        upload_buffer += message.server_streamer_upload_chunk.chunk
                     
-                    elif(message.HasField("server_upload_end")):
-                        with open(f"resource/{message.server_upload_end.filename}", 'wb') as f:
-                            self.logger.info(f"Write in file: {message.server_upload_end.filename}")
+                    elif(message.HasField("server_streamer_upload_end")):
+                        with open(f"resource/{message.server_streamer_upload_end.filename}", 'wb') as f:
+                            self.logger.info(f"Write in file: {message.server_streamer_upload_end.filename}")
                             f.write(upload_buffer)
                             del upload_buffer
-                        if not os.path.exists(f"segment/{message.server_upload_end.filename.split(".")[0]}/info.json"):
-                            self.logger.info(f"Not found segments of: {message.server_upload_end.filename.split(".")[0]}. Segmentation starts.")
-                            threading.Thread(target=VideoSegmenter(f"resource/{message.server_upload_end.filename}", f"segment/{message.server_upload_end.filename.split(".")[0]}/info.json", f"segment/{message.server_upload_end.filename.split(".")[0]}", 1).segment).start()
-
+                        threading.Thread(target = source_updater, args = (self, message.server_streamer_upload_end.filename)).start()
+                        if not os.path.exists(f"segment/{message.server_streamer_upload_end.filename.split(".")[0]}/info.json"):
+                            streamer_servicer_source[message.server_streamer_upload_end.filename] = False
+                            self.logger.info(f"Not found segments of: {message.server_streamer_upload_end.filename.split(".")[0]}. Segmentation starts.")
+                            threading.Thread(target=VideoSegmenter(f"resource/{message.server_streamer_upload_end.filename}", f"segment/{message.server_streamer_upload_end.filename.split(".")[0]}/info.json", f"segment/{message.server_streamer_upload_end.filename.split(".")[0]}", 1).segment).start()
                     
                     # UPLOAD END 
             
@@ -107,42 +119,42 @@ class Streamer(server_streamer_pb2_grpc.ServerStreamerServiceServicer):
         threading.Thread(target=handle_requests, args=(self,)).start()
 
         while context.is_active():
-            
-            if self.streamer_servicer_status[id] == "initialised" and not self.streamer_servicer_data[id][1] == None and not self.streamer_servicer_data[id][2] == None:
-                self.logger.info("Streamer send info to server.")
-                yield server_streamer_pb2.StreamerServerMessage(
-                    info=server_streamer_pb2.StreamerServerInfo(info=self.streamer_servicer_data[id][1])
-                )
-                self.streamer_servicer_status[id] = "sent_info"
 
-            elif self.streamer_servicer_status[id] == "sent_info":
-                self.logger.info("Streamer start data transfer to server.")
-                i = 0
-                while self.streamer_servicer_status[id] == "sent_info" and i < len(self.streamer_servicer_data[id][2]):
-                    if len(self.streamer_servicer_data[id][0]) > 0:
-                        chunk = self.streamer_servicer_data[id][0].popleft()
-                        if len(chunk) == 0:
-                            break
-                        self.logger.debug(str(f"Send segment no.: {i} to server."))
-                        yield server_streamer_pb2.StreamerServerMessage(
-                            chunk=server_streamer_pb2.StreamerServerChunk(chunk=chunk)
-                        )
-                        i += 1
-                if self.streamer_servicer_status[id] == "sent_info":
-                    self.streamer_servicer_status[id] = "sent_data"
-                    self.logger.info("Streamer finished data transfer to server.") 
+            if self.streamer_servicer_data[id][2] != None and self.streamer_servicer_status[id]["segment_id"] < len(self.streamer_servicer_data[id][2]) and len(self.outgoing[id]) == 0 and len(self.streamer_servicer_data[id][0]) > 0:
+                segment = self.streamer_servicer_data[id][0].popleft()
+                self.logger.debug(str(f"Send segment no.: {self.streamer_servicer_status[id]["segment_id"]} to server."))
+                yield server_streamer_pb2.StreamerServerMessage(
+                    streamer_server_segment = server_streamer_pb2.StreamerServerSegment(segment = segment)
+                )
+                self.streamer_servicer_status[id]["segment_id"] += 1
+            else:
+                time.sleep(0.1)
+                # self.logger.debug(f"Server sends heartbeat to client: {id}")
+                yield server_streamer_pb2.StreamerServerMessage(
+                    streamer_server_heartbeat=server_streamer_pb2.StreamerServerHeartbeat()
+                )
 
             # OUTGOING PROCESSING START
 
             if len(self.outgoing[id]) > 0:
-                while len(self.outgoing[id]) > 0:
-                    typ, load = self.outgoing[id].popleft()
-
-                    if typ == "no_such_file":
-                        self.logger.info(f"Streamer sends no_such_file to")
+                mode, load = self.outgoing[id].popleft()
+                
+                if mode == "resend_info":
+                    if not self.streamer_servicer_data[id][1] == None:
+                        self.logger.info("Streamer send info to server.")
                         yield server_streamer_pb2.StreamerServerMessage(
-                            streamer_no_such_file_request = server_streamer_pb2.StreamerNoSuchFileRequest()
+                            streamer_server_info = server_streamer_pb2.StreamerServerInfo(info=self.streamer_servicer_data[id][1])
                         )
-                continue
+                        self.streamer_servicer_status[id]["status"] = "sent_info"
+                    else:
+                        self.outgoing[id].append(("resend_info", ""))
+                
+                elif mode == "new_source":
+                    self.logger.info(f"STREAMER - {id} - main_thread - send streamer_server_new_source")
+                    yield server_streamer_pb2.StreamerServerMessage(
+                        streamer_server_new_source = server_streamer_pb2.StreamerServerNewSource(filename = load)
+                    )
+
+
             
             # OUTGOING PROCESSING END

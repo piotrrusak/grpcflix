@@ -7,55 +7,52 @@ service ServerStreamerService {
 
 message ServerStreamerMessage {
   oneof payload {
-    ServerStartRequest server_start_request = 1;
-    ServerStopRequest server_stop_request = 2;
-    ServerSourceRequest server_source_request = 3;
-    ServerUploadStart server_upload_start = 4;
-    ServerUploadChunk server_upload_chunk = 5;
-    ServerUploadEnd server_upload_end = 6;
+    ServerStreamerSource server_streamer_source = 1;
+
+    ServerStreamerUploadStart server_streamer_upload_start = 2;
+    ServerStreamerUploadChunk server_streamer_upload_chunk = 3;
+    ServerStreamerUploadEnd server_streamer_upload_end = 4;
   }
+}
+
+message ServerStreamerSource {
+  string source = 1;
+}
+
+message ServerStreamerUploadStart {
+
+}
+
+message ServerStreamerUploadChunk {
+  bytes chunk = 1;
+}
+
+message ServerStreamerUploadEnd {
+  string filename = 1;
 }
 
 message StreamerServerMessage {
   oneof payload {
-    StreamerServerInfo info = 1;
-    StreamerServerChunk chunk = 2;
-    StreamerNoSuchFileRequest streamer_no_such_file_request = 3;
+    StreamerServerInfo streamer_server_info = 1;
+    StreamerServerSegment streamer_server_segment = 2;
+    StreamerServerNewSource streamer_server_new_source = 3;
+    
+    StreamerServerHeartbeat streamer_server_heartbeat = 4;
   }
-}
-
-message ServerUploadStart {
-
-}
-
-message ServerUploadChunk {
-  bytes chunk = 1;
-}
-
-message ServerUploadEnd {
-  string filename = 1;
-}
-
-message StreamerNoSuchFileRequest {
-  
-}
-
-message ServerSourceRequest {
-  string source = 1;
-}
-
-message ServerStartRequest {
-
-}
-
-message ServerStopRequest {
-
-}
-
-message StreamerServerChunk {
-  bytes chunk = 1;
 }
 
 message StreamerServerInfo {
   string info = 1;
+}
+
+message StreamerServerSegment {
+  bytes segment = 1;
+}
+
+message StreamerServerNewSource {
+  string filename = 1;
+}
+
+message StreamerServerHeartbeat {
+
 }

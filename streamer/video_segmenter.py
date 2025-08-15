@@ -33,6 +33,8 @@ class VideoSegmenter():
             "-reset_timestamps", "1",
             output_pattern
         ])
+
+        
         
         temp = []
 
